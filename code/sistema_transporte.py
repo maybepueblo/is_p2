@@ -4,6 +4,8 @@ from lector_csv import LectorCSV
 from visualizador import VisualizadorIncidencias
 from modulo_inteligente import ModuloInteligente
 from publisher import Publisher
+import csv
+from datetime import datetime
 
 
 class SistemaTransporte:
@@ -46,8 +48,22 @@ class SistemaTransporte:
 
         if incidencias:
             print(f"Se detectaron {len(incidencias)} incidencias.")
+            self.guardar_incidencia_log(incidencias)
             mensaje = f"Alertas: {', '.join(set(incidencias))}"
             self.publisher.notificar(mensaje, "Mantenimiento")
             self.visualizador.generar_grafica_incidencias(incidencias)
         else:
             print("Sistema estable.")
+
+    def guardar_incidencia_log(self, incidencias: List[str]):
+        archivo_log = "incidencias.csv"
+        ahora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        try:
+            with open(archivo_log, mode = 'a', newline='', encoding='utf-8') as f:
+                writer = csv.writer(f)
+                for inc in incidencias:
+                    writer.writerow([ahora, inc])
+            print(f"Registro guardado en {archivo_log}")
+        except Exception as e:
+            print(f"Error al guardar log de incidencias: {e}")
