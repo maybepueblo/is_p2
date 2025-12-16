@@ -20,7 +20,7 @@ class ModuloInteligente:
         self.model = xgb.XGBClassifier(
             n_estimators=100,
             learning_rate=0.05,
-            max_depth=5,
+            max_depth=9,
             objective='multi:softmax',
             num_class=3,
             eval_metric='mlogloss',
