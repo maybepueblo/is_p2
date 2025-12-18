@@ -25,9 +25,6 @@ class SistemaTransporte:
             print("✅ IA Operativa: Modelo predictivo cargado correctamente.")
         else:
             print("⚠️ ADVERTENCIA: No se encontró modelo entrenado.")
-            print(
-                "   El sistema no detectará nada hasta que ejecutes 'experimentos.py'."
-            )
 
     def carga_datos(self, ruta_archivo: str):
         print(f"📥 Cargando datos operativos desde {ruta_archivo}...")
@@ -41,25 +38,26 @@ class SistemaTransporte:
             print(f"   Error crítico al leer CSV: {e}")
 
     def suscribir_usuario(self, usuario: Cliente, tipo_incidencia: str):
-        self.publisher.suscribir(usuario, tipo_incidencia)
+        """
+        Lógica corregida para soportar suscripciones múltiples.
+        """
+        if tipo_incidencia == "Ambos":
+            # Suscribimos al usuario a LOS DOS canales principales
+            self.publisher.suscribir(usuario, "Bloqueo")
+            self.publisher.suscribir(usuario, "Salto")
+        else:
+            # Suscripción normal (solo Bloqueo o solo Salto)
+            self.publisher.suscribir(usuario, tipo_incidencia)
+
         if usuario not in self.catalogo_clientes:
             self.catalogo_clientes.append(usuario)
 
     def desuscribir_usuario(self, usuario: Cliente, tipo_incidencia: str):
         self.publisher.desuscribir(usuario, tipo_incidencia)
 
-    def ver_estadisticas(self, usuario: Cliente):
-        print(f"Generando reporte estadístico solicitado por: {usuario.email}")
-        if self.datos_actuales is not None:
-            # Asumiendo que el visualizador soporta este método
-            self.visualizador.generar_grafica_tendencia(self.datos_actuales)
-        else:
-            print("No hay datos cargados para visualizar.")
-
     def detectar_y_notificar(self):
         print("--- 🔍 Iniciando ciclo de detección y predicción ---")
 
-        # Validaciones previas
         if self.datos_actuales is None:
             print("Error: No hay datos para analizar.")
             return
@@ -68,35 +66,38 @@ class SistemaTransporte:
             print("Error: El modelo IA no está cargado/entrenado.")
             return
 
-        # Delegamos al subsistema complejo
-        # 'analizar_todo' procesa el dataframe y devuelve lista de strings
+        # Obtenemos predicciones de la IA (lista de strings)
         incidencias = self.modulo_inteligente.analizar_todo(self.datos_actuales)
 
         if incidencias:
             n = len(incidencias)
-            print(f"🚨 ALERTA: Se han detectado {n} posibles incidencias futuras.")
+            print(f"🚨 ALERTA: Se han detectado {n} incidencias.")
 
-            # Notificamos (Patrón Observer)
-            # Mostramos las primeras 3 para no saturar el mensaje
-            detalle = "; ".join(incidencias[:3])
-            if n > 3:
-                detalle += f"... y {n - 3} más."
+            # --- NUEVA LÓGICA DE CLASIFICACIÓN ---
+            # Leemos el texto de la alerta para saber a qué canal enviarla
+            for alerta in incidencias:
+                if "BLOQUEO" in alerta:
+                    self.publisher.notificar(alerta, "Bloqueo")
 
-            mensaje = f"REPORTE PREDICTIVO: {detalle}"
-            self.publisher.notificar(mensaje, "Mantenimiento")
+                elif "SALTO" in alerta:
+                    self.publisher.notificar(alerta, "Salto")
 
+                else:
+                    # Fallback por si hay otro tipo
+                    self.publisher.notificar(alerta, "Mantenimiento")
         else:
             print("✅ Sistema estable. No se prevén anomalías.")
 
     def publicar_incidencia(self, cliente: Cliente, tema: str, mensaje: str):
-
-        # 1. Validación de seguridad
         if not cliente.es_admin:
-            print(f"❌ ACCESO DENEGADO: El usuario {cliente.email} no tiene permisos de administrador.")
+            print(f"❌ ACCESO DENEGADO: {cliente.email} no es admin.")
             return
 
-        # 2. Orquestación: Se delega la difusión al Publisher
-        print(f"📢 Publicación autorizada para: {cliente.email}")
+        print(f"📢 Publicación manual de: {cliente.email}")
         aviso = f"⚠️ AVISO MANUAL (Admin: {cliente.email}): {mensaje}"
-
         self.publisher.notificar(aviso, tema)
+
+    def ver_estadisticas(self, usuario: Cliente):
+        # Mantenemos el método original
+        if self.datos_actuales is not None:
+            self.visualizador.generar_grafica_tendencia(self.datos_actuales)

@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interfaz Metro - Sistema de Transporte</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #e9ecef; }
+        .monitor-screen {
+            background-color: #fff;
+            min-height: 450px;
+            max-height: 600px;
+            overflow-y: auto;
+            border-radius: 10px;
+            padding: 20px;
+            border-left: 5px solid #0d6efd;
+        }
+        .log-entry {
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+            animation: fadeIn 0.5s;
+        }
+        .log-time {
+            font-size: 0.8em;
+            color: #888;
+            margin-right: 10px;
+        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+
+<nav class="navbar navbar-dark bg-primary mb-4 shadow">
+    <div class="container">
+        <span class="navbar-brand mb-0 h1">🚄 Panel de Control Centralizado</span>
+        <span class="badge bg-light text-primary" id="status-badge">Conectado</span>
+    </div>
+</nav>
+
+<div class="container">
+    <div class="row">
+        <div class="col-lg-8 mb-4">
+            <div class="card shadow">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 text-primary">📡 Monitor de Tráfico e Incidencias</h5>
+                    <small class="text-muted">Actualización: <span id="last-update">-</span></small>
+                </div>
+                <div class="monitor-screen" id="monitor-logs">
+                    <div class="text-center text-muted mt-5">
+                        <div class="spinner-border text-primary" role="status"></div>
+                        <p class="mt-2">Estableciendo conexión con el Sistema de Transporte...</p>
+                    </div>
+                </div>
+                <div class="card-footer bg-light text-end">
+                    <button class="btn btn-sm btn-outline-primary" onclick="actualizarMonitor()">🔄 Refrescar Ahora</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+
+            <div class="card shadow mb-4">
+                <div class="card-header bg-dark text-white">
+                    👤 Registrar Nuevo Operario
+                </div>
+                <div class="card-body">
+                    <form id="formUser">
+                        <div class="mb-3">
+                            <label class="form-label">Correo Electrónico</label>
+                            <input type="email" class="form-control" id="emailUser" placeholder="ejemplo@metro.com" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Canal de Alertas de Interés</label>
+                            <select class="form-select" id="topicoUser" required>
+                                <option value="3" selected>🔔 Ambos (Bloqueos y Saltos)</option>
+                                <option value="1">🛑 Solo Bloqueos (Prioridad Alta)</option>
+                                <option value="2">⚡ Solo Saltos de Tensión</option>
+                            </select>
+                            <div class="form-text small">El usuario recibirá notificaciones solo de lo seleccionado.</div>
+                        </div>
+
+                        <button type="submit" class="btn btn-success w-100">Dar de Alta</button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="card shadow border-warning">
+                <div class="card-header bg-warning text-dark fw-bold">
+                    📢 Difusión Manual (Admin)
+                </div>
+                <div class="card-body">
+                    <p class="small text-muted">Enviar mensaje a todos los canales (Bloqueo y Salto).</p>
+                    <textarea class="form-control mb-2" id="txtAviso" rows="3" placeholder="Escriba el aviso..."></textarea>
+                    <button onclick="enviarAviso()" class="btn btn-warning w-100">📢 Publicar Aviso</button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- 1. FUNCIÓN PRINCIPAL: ACTUALIZAR MONITOR ---
+    async function actualizarMonitor() {
+        try {
+            const res = await fetch('/api/estado');
+            const datos = await res.json();
+
+            const contenedor = document.getElementById('monitor-logs');
+            contenedor.innerHTML = ''; // Limpiamos pantalla
+
+            // Actualizamos hora
+            const ahora = new Date().toLocaleTimeString();
+            document.getElementById('last-update').innerText = ahora;
+
+            if(datos.length === 0) {
+                 contenedor.innerHTML = '<div class="text-center text-muted mt-5">Sin datos disponibles.</div>';
+                 return;
+            }
+
+            datos.forEach(d => {
+                // Estilos según el tipo de alerta devuelto por Python
+                let badgeClass = "bg-secondary";
+                let rowClass = "bg-light";
+                let icon = "ℹ️";
+
+                if (d.tipo.includes("PELIGRO")) {
+                    badgeClass = "bg-danger";
+                    rowClass = "bg-danger-subtle border-danger";
+                    icon = "🛑";
+                } else if (d.tipo.includes("VOLTAJE")) {
+                    badgeClass = "bg-warning text-dark";
+                    rowClass = "bg-warning-subtle border-warning";
+                    icon = "⚡";
+                } else if (d.tipo.includes("ADMIN")) {
+                    badgeClass = "bg-info text-dark";
+                    rowClass = "bg-info-subtle border-info";
+                    icon = "📢";
+                } else if (d.tipo === "ESTADO") {
+                    badgeClass = "bg-success";
+                    rowClass = "bg-white border-start border-success border-4";
+                    icon = "✅";
+                }
+
+                // Crear el HTML de la fila
+                const div = document.createElement('div');
+                div.className = `log-entry rounded mb-2 ${rowClass}`;
+                div.innerHTML = `
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <span class="badge ${badgeClass} me-2">${icon} ${d.tipo}</span>
+                            <span class="fw-bold text-dark">${d.mensaje}</span>
+                        </div>
+                        <span class="log-time">${d.hora}</span>
+                    </div>
+                `;
+                contenedor.appendChild(div);
+            });
+
+        } catch (e) {
+            console.error("Error conectando con API:", e);
+            document.getElementById('status-badge').className = "badge bg-danger";
+            document.getElementById('status-badge').innerText = "Desconectado";
+        }
+    }
+
+    // --- 2. MANEJO DEL FORMULARIO DE REGISTRO ---
+    document.getElementById('formUser').addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const email = document.getElementById('emailUser').value;
+        const topico = document.getElementById('topicoUser').value; // Aquí va el 1, 2 o 3
+
+        const btn = e.submitter;
+        const textoOriginal = btn.innerText;
+        btn.innerText = "Procesando...";
+        btn.disabled = true;
+
+        try {
+            const res = await fetch('/api/usuarios', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ email, topico })
+            });
+
+            const data = await res.json();
+
+            if(res.ok) {
+                alert("✅ " + data.msg);
+                document.getElementById('formUser').reset();
+            } else {
+                alert("❌ Error: " + data.error);
+            }
+        } catch (err) {
+            alert("Error de conexión");
+        } finally {
+            btn.innerText = textoOriginal;
+            btn.disabled = false;
+        }
+    });
+
+    // --- 3. ENVÍO DE AVISOS MANUALES ---
+    async function enviarAviso() {
+        const txt = document.getElementById('txtAviso');
+        const mensaje = txt.value.trim();
+
+        if(!mensaje) {
+            alert("Por favor escribe un mensaje.");
+            return;
+        }
+
+        try {
+            const res = await fetch('/api/aviso_manual', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ mensaje })
+            });
+
+            if(res.ok) {
+                txt.value = ''; // Limpiar campo
+                actualizarMonitor(); // Refrescar para ver el mensaje
+                alert("Mensaje difundido correctamente.");
+            }
+        } catch (err) {
+            console.error(err);
+        }
+    }
+
+    // Iniciar el ciclo de refresco automático (Polling)
+    setInterval(actualizarMonitor, 5000); // Cada 5 segundos
+    actualizarMonitor(); // Primera carga inmediata
+
+</script>
+
+</body>
+</html>
