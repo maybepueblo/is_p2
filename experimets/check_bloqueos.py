@@ -9,11 +9,7 @@ from code.lector_csv import LectorCSV
 # =====================
 LIMITE_TIEMPO_SEC = 120  # debe coincidir con ModuloInteligente
 
-RUTA_DATASET = os.path.join(
-    os.path.dirname(__file__),
-    "data",
-    "Dataset-CV.csv"
-)
+RUTA_DATASET = os.path.join(os.path.dirname(__file__), "data", "Dataset-CV.csv")
 
 # =====================
 # CARGA CON LectorCSV

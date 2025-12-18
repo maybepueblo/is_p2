@@ -7,14 +7,13 @@ from typing import List, Dict
 
 
 class ModuloInteligente:
-
     def __init__(self):
         # =====================
         # CONFIGURACIÓN GENERAL
         # =====================
-        self.UMBRAL_VOLTAJE = 0.5              # V
-        self.LIMITE_TIEMPO_SEC = 120           # s
-        self.HORIZONTE_PREDICCION_SEC = 120    # s
+        self.UMBRAL_VOLTAJE = 0.5  # V
+        self.LIMITE_TIEMPO_SEC = 120  # s
+        self.HORIZONTE_PREDICCION_SEC = 120  # s
 
         self.WINDOW_SIZE = 10
 
@@ -33,7 +32,7 @@ class ModuloInteligente:
             objective="multi:softprob",
             num_class=3,
             eval_metric="mlogloss",
-            random_state=42
+            random_state=42,
         )
 
         self.features_entrenamiento = []
@@ -59,7 +58,6 @@ class ModuloInteligente:
             df[col] = df[col].astype(float)
 
             # --- MEJORA CLAVE 1: Diferencia instantánea ---
-            # Esto dispara el Accuracy al ~99% al revelar los saltos reales
             df[f"{col}_diff"] = df[col].diff().fillna(0)
 
             # Estadísticas de Ventana
@@ -67,7 +65,6 @@ class ModuloInteligente:
             df[f"{col}_std"] = df[col].rolling(self.WINDOW_SIZE).std().fillna(0)
 
             # --- MEJORA CLAVE 2: Desviación (Sustituye a trend) ---
-            # Detecta picos mejor y más rápido que polyfit
             df[f"{col}_dev"] = abs(df[col] - df[f"{col}_mean"])
 
         # --- MEJORA CLAVE 3: Corrección del Crash ---
@@ -102,7 +99,12 @@ class ModuloInteligente:
             # es que ACABA de ocurrir un bloqueo. Lo marcamos aquí.
             gap_actual = 0
             if i > 0:
-                gap_actual = (timestamps[i] - timestamps[i - 1]).astype("timedelta64[s]").item().seconds
+                gap_actual = (
+                    (timestamps[i] - timestamps[i - 1])
+                    .astype("timedelta64[s]")
+                    .item()
+                    .seconds
+                )
 
             if gap_actual > self.LIMITE_TIEMPO_SEC:
                 y[i] = 1
@@ -115,10 +117,11 @@ class ModuloInteligente:
             j = i + 1
             while j < len(df):
                 # ¿Cuánto futuro hemos mirado ya?
-                delta_futuro = (timestamps[j] - t0).astype("timedelta64[s]").item().seconds
+                delta_futuro = (
+                    (timestamps[j] - t0).astype("timedelta64[s]").item().seconds
+                )
 
                 # Si miramos más allá de 2 minutos (horizonte), paramos.
-                # No nos interesa predecir cosas que pasarán dentro de una hora.
                 if delta_futuro > self.HORIZONTE_PREDICCION_SEC:
                     break
 
@@ -128,8 +131,10 @@ class ModuloInteligente:
                     salto_v1 = abs(v1[j] - v1[j - 1])
                     salto_v2 = abs(v2[j] - v2[j - 1])
 
-                    if salto_v1 >= self.UMBRAL_VOLTAJE or salto_v2 >= self.UMBRAL_VOLTAJE:
-                        # ¡EUREKA! En el futuro cercano hay un salto.
+                    if (
+                        salto_v1 >= self.UMBRAL_VOLTAJE
+                        or salto_v2 >= self.UMBRAL_VOLTAJE
+                    ):
                         # Etiquetamos la fila ACTUAL 'i' como "Precursor de Salto"
                         y[i] = 2
                         break  # Ya sabemos que viene un salto, no necesitamos buscar más
@@ -146,15 +151,19 @@ class ModuloInteligente:
         Entrena el modelo forzando el aprendizaje de Bloqueos mediante
         Inyección de Datos Sintéticos (Data Augmentation).
         """
-        print(f"   [ML] Procesando {len(datos_historicos)} registros para entrenamiento...")
+        print(
+            f"   [ML] Procesando {len(datos_historicos)} registros para entrenamiento..."
+        )
 
         # 1. Generar Features y Etiquetas iniciales
         X = self._generar_features(datos_historicos)
         y = self._etiquetar_automaticamente(X)
 
         # 2. Limpieza de columnas (nos quedamos solo con las numéricas para la IA)
-        cols_drop = ['timestamp', 'medida', 'id', 'canal', 'valor', 'status']
-        features_validas = [c for c in X.columns if c not in cols_drop and 'tiempo' not in c]
+        cols_drop = ["timestamp", "medida", "id", "canal", "valor", "status"]
+        features_validas = [
+            c for c in X.columns if c not in cols_drop and "tiempo" not in c
+        ]
         self.features_entrenamiento = features_validas
         X_final = X[features_validas].copy()
 
@@ -168,20 +177,25 @@ class ModuloInteligente:
         conteo_bloqueos = np.count_nonzero(y == 1)
 
         if conteo_bloqueos < 500:
-            CANTIDAD_A_INYECTAR = 2000  # Número alto para asegurar detección
+            CANTIDAD_A_INYECTAR = 2000
             print(
-                f"   [ML] ⚠️ Pocos Bloqueos reales ({conteo_bloqueos}). Inyectando {CANTIDAD_A_INYECTAR} muestras sintéticas...")
+                f"   [ML] ⚠️ Pocos Bloqueos reales ({conteo_bloqueos}). Inyectando {CANTIDAD_A_INYECTAR} muestras sintéticas..."
+            )
 
             # A. Clonamos datos normales aleatorios para tener "base realista" (voltajes, ruido...)
-            indices_base = np.random.choice(X_final.index, CANTIDAD_A_INYECTAR, replace=True)
+            indices_base = np.random.choice(
+                X_final.index, CANTIDAD_A_INYECTAR, replace=True
+            )
             df_sintetico = X_final.loc[indices_base].copy()
 
             # B. "Corrompemos" la columna del tiempo (delta_t)
             # Generamos tiempos aleatorios entre 125s (bloqueo leve) y 1000s (bloqueo grave)
-            tiempos_bloqueo = np.random.uniform(self.LIMITE_TIEMPO_SEC + 5, 1000, CANTIDAD_A_INYECTAR)
+            tiempos_bloqueo = np.random.uniform(
+                self.LIMITE_TIEMPO_SEC + 5, 1000, CANTIDAD_A_INYECTAR
+            )
 
-            df_sintetico['delta_t'] = tiempos_bloqueo
-            df_sintetico['delta_t_rolling'] = tiempos_bloqueo  # El rolling también se ve afectado
+            df_sintetico["delta_t"] = tiempos_bloqueo
+            df_sintetico["delta_t_rolling"] = tiempos_bloqueo
 
             # C. Añadimos al set de entrenamiento
             X_final = pd.concat([X_final, df_sintetico], ignore_index=True)
@@ -191,7 +205,9 @@ class ModuloInteligente:
 
         # Verificación de distribución antes de entrenar
         unique, counts = np.unique(y, return_counts=True)
-        print(f"   [ML] Distribución de clases para entrenamiento: {dict(zip(unique, counts))}")
+        print(
+            f"   [ML] Distribución de clases para entrenamiento: {dict(zip(unique, counts))}"
+        )
 
         # 3. Entrenamiento del Modelo
         self.model.fit(X_final, y)
@@ -207,11 +223,14 @@ class ModuloInteligente:
 
         path = os.path.join(self.MODEL_DIR, self.MODEL_FILENAME)
 
-        joblib.dump({
-            "model": self.model,
-            "features": self.features_entrenamiento,
-            "trained": self.is_trained
-        }, path)
+        joblib.dump(
+            {
+                "model": self.model,
+                "features": self.features_entrenamiento,
+                "trained": self.is_trained,
+            },
+            path,
+        )
 
         print(f"[ML] Modelo guardado en {path}")
 
@@ -247,11 +266,9 @@ class ModuloInteligente:
         if v2 > 50:
             v2 /= 1000
 
-        self.buffer_lecturas.append({
-            "timestamp": ts,
-            "voltageReceiver1": v1,
-            "voltageReceiver2": v2
-        })
+        self.buffer_lecturas.append(
+            {"timestamp": ts, "voltageReceiver1": v1, "voltageReceiver2": v2}
+        )
 
         if len(self.buffer_lecturas) > self.WINDOW_SIZE + 1:
             self.buffer_lecturas.pop(0)
@@ -268,7 +285,9 @@ class ModuloInteligente:
         pred = np.argmax(probs)
 
         if pred == 1:
-            return [f"⚠️ Posible BLOQUEO en los próximos {self.HORIZONTE_PREDICCION_SEC}s"]
+            return [
+                f"⚠️ Posible BLOQUEO en los próximos {self.HORIZONTE_PREDICCION_SEC}s"
+            ]
         if pred == 2:
             return [f"⚠️ Posible SALTO en los próximos {self.HORIZONTE_PREDICCION_SEC}s"]
 
@@ -285,7 +304,7 @@ class ModuloInteligente:
             lectura = {
                 "timestamp": row["timestamp"],
                 "voltageReceiver1": row["voltageReceiver1"] * 1000,
-                "voltageReceiver2": row["voltageReceiver2"] * 1000
+                "voltageReceiver2": row["voltageReceiver2"] * 1000,
             }
 
             alertas.extend(self.predecir_tiempo_real(lectura))

@@ -47,15 +47,17 @@ def main():
 
     if 1 not in y_temp:
         print("   [TEST] ⚠️ No se detectaron bloqueos naturales en el Test.")
-        print("   [TEST] 💉 Inyectando bloqueo forzado en la última fila para asegurar métricas...")
+        print(
+            "   [TEST] 💉 Inyectando bloqueo forzado en la última fila para asegurar métricas..."
+        )
 
         # Trucamos la última fila para que tenga un salto de tiempo de 500s
         idx_last = test_data.index[-1]
         idx_prev = test_data.index[-2]
-        t_prev = test_data.loc[idx_prev, 'timestamp']
+        t_prev = test_data.loc[idx_prev, "timestamp"]
 
         # Forzamos que la última lectura sea 500 segundos después de la penúltima
-        test_data.at[idx_last, 'timestamp'] = t_prev + pd.Timedelta(seconds=500)
+        test_data.at[idx_last, "timestamp"] = t_prev + pd.Timedelta(seconds=500)
 
     # Recalculamos el Ground Truth definitivo con la inyección aplicada
     y_real_full = cerebro._etiquetar_automaticamente(test_data)
@@ -96,25 +98,31 @@ def main():
 
     # --- REPORTE A: GLOBAL (INCLUYE NORMALES) ---
     print("\n--- A. MÉTRICAS GLOBALES (Con Clase Normal) ---")
-    print(classification_report(
-        y_real, y_pred,
-        labels=[0, 1, 2],
-        target_names=target_names,
-        digits=4,
-        zero_division=0
-    ))
+    print(
+        classification_report(
+            y_real,
+            y_pred,
+            labels=[0, 1, 2],
+            target_names=target_names,
+            digits=4,
+            zero_division=0,
+        )
+    )
 
     # --- REPORTE B: SOLO ANOMALÍAS (SIN NORMALES) ---
     print("\n--- B. MÉTRICAS DE ANOMALÍAS (Excluyendo Normales) ---")
     # Filtramos para mostrar solo métricas de las clases 1 y 2
     # Nota: 'support' será la cantidad real de anomalías
-    print(classification_report(
-        y_real, y_pred,
-        labels=[1, 2],
-        target_names=["Bloqueo", "Salto"],
-        digits=4,
-        zero_division=0
-    ))
+    print(
+        classification_report(
+            y_real,
+            y_pred,
+            labels=[1, 2],
+            target_names=["Bloqueo", "Salto"],
+            digits=4,
+            zero_division=0,
+        )
+    )
 
     print("\nMatriz de Confusión Global:")
     print(confusion_matrix(y_real, y_pred))
