@@ -1,7 +1,5 @@
 import os
 import sys
-import pandas as pd
-import numpy as np
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
 
 DIR_EXPERIMENTS = os.path.dirname(os.path.abspath(__file__))
@@ -9,12 +7,12 @@ DIR_CODE = os.path.dirname(DIR_EXPERIMENTS)
 sys.path.append(DIR_CODE)
 
 try:
-    from lector_csv import LectorCSV
-    from modulo_inteligente import ModuloInteligente
+    from code.lector_csv import LectorCSV
+    from code.modulo_inteligente import ModuloInteligente
 except ImportError:
     sys.path.append(os.path.join(DIR_EXPERIMENTS, ".."))
-    from lector_csv import LectorCSV
-    from modulo_inteligente import ModuloInteligente
+    from code.lector_csv import LectorCSV
+    from code.modulo_inteligente import ModuloInteligente
 
 
 def main():
@@ -85,7 +83,6 @@ def main():
 
     # 5. PERSISTENCIA AUTOMÁTICA
     print("\n4. Exportando Cerebro Entrenado...")
-    # El módulo sabe dónde guardarlo (carpeta 'model/')
     cerebro.guardar_modelo()
     print("   ✅ Experimento finalizado.")
 

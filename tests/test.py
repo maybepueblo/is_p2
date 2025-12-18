@@ -14,7 +14,7 @@ except ImportError as e:
 
 def main():
     # 1. DEFINICIÓN DE LA RUTA (Según tus indicaciones)
-    RUTA_ARCHIVO = os.path.join("experimets/data", "Dataset-CV.csv")
+    RUTA_ARCHIVO = os.path.join("../experimets/data", "Dataset-CV.csv")
 
     print(f"--- INICIANDO SISTEMA DE DETECCIÓN FERROVIARIA ---")
 

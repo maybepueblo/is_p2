@@ -1,7 +1,5 @@
 import os
 import sys
-import pandas as pd
-import numpy as np
 import xgboost as xgb
 from sklearn.metrics import classification_report, f1_score, recall_score
 import itertools
@@ -11,12 +9,12 @@ DIR_EXPERIMENTS = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(DIR_EXPERIMENTS))
 
 try:
-    from lector_csv import LectorCSV
-    from modulo_inteligente import ModuloInteligente
+    from code.lector_csv import LectorCSV
+    from code.modulo_inteligente import ModuloInteligente
 except ImportError:
     sys.path.append(os.path.join(DIR_EXPERIMENTS, ".."))
-    from lector_csv import LectorCSV
-    from modulo_inteligente import ModuloInteligente
+    from code.lector_csv import LectorCSV
+    from code.modulo_inteligente import ModuloInteligente
 
 
 def evaluar_configuracion(train_data, test_data, window_size, xgb_params):
@@ -39,8 +37,6 @@ def evaluar_configuracion(train_data, test_data, window_size, xgb_params):
     )
 
     # 2. Entrenamiento (usará la window_size nueva para generar features)
-    # Silenciamos prints internos para no ensuciar la salida
-    # (Opcional: puedes comentar esto si quieres ver el proceso)
     cerebro.entrenar(train_data)
 
     # 3. Evaluación
@@ -62,7 +58,7 @@ def evaluar_configuracion(train_data, test_data, window_size, xgb_params):
     if 1 in y_real:
         recall_1 = recall_score(y_real, y_pred, labels=[1],
                                 average='macro')  # Ojo, esto calcula sobre las etiquetas dadas
-        # Mejor usamos classification report dict para exactitud
+
         report = classification_report(y_real, y_pred, output_dict=True, zero_division=0)
         recall_bloqueo = report.get('1.0', {}).get('recall', 0.0)
         f1_macro = report['macro avg']['f1-score']
@@ -89,7 +85,6 @@ def main():
     test_data = df_total.iloc[corte:]
 
     # 2. DEFINICIÓN DE LA REJILLA (GRID)
-    # Aquí defines qué quieres probar
     ventanas = [3, 5, 10]
 
     params_xgboost = {
@@ -139,6 +134,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-    # acc 0.9433 con v=3 y params: {'n_estimators': 100, 'max_depth': 6, 'learning_rate': 0.1}

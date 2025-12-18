@@ -18,7 +18,7 @@ class ModuloInteligente:
 
         # Modelo IA (XGBoost)
         self.model = xgb.XGBClassifier(
-            n_estimators=100,
+            n_estimators=50,
             learning_rate=0.05,
             max_depth=9,
             objective='multi:softmax',

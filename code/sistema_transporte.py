@@ -11,8 +11,8 @@ class SistemaTransporte:
     def __init__(self):
         self.catalogo_clientes: List[Cliente] = []
         self.lector_csv = LectorCSV()
-        self.visualizador = VisualizadorIncidencias()  # Asumo que tienes esta clase o un mock
-        self.publisher = Publisher()  # Asumo que tienes esta clase
+        self.visualizador = VisualizadorIncidencias()
+        self.publisher = Publisher()
         self.datos_actuales = None
 
         # INICIALIZACIÓN INTELIGENTE
@@ -65,8 +65,6 @@ class SistemaTransporte:
             mensaje = f"REPORTE INCIDENCIAS: {'; '.join(incidencias[:5])}..."  # Solo las primeras 5 en el resumen
             self.publisher.notificar(mensaje, "Mantenimiento")
 
-            # Visualizamos (si el visualizador lo soporta)
-            # self.visualizador.generar_grafica_incidencias(incidencias)
         else:
             print("✅ Sistema estable. No se detectaron anomalías.")
 
