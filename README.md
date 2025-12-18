@@ -71,3 +71,23 @@ Matriz de Confusión:
 - Eficacia: 15.624 saltos correctamente identificados de un total de 16.174.
    
 ---
+
+# Problema de detección y no de predicción
+1. Evaluación de la Fase de Validación (QA) Durante las pruebas de aceptación del sistema inicial (V1), el equipo de validación identificó una divergencia conceptual crítica entre los objetivos del proyecto y la implementación funcional.
+- Comportamiento Observado: El algoritmo procesaba la ventana temporal actual (T0) y clasificaba el estado con alta precisión.
+- Defecto Reportado: El sistema operaba exclusivamente como un Monitor de Estado en Tiempo Real, limitándose a notificar incidencias en el instante de su ocurrencia.
+- Impacto Operativo: Aunque técnicamente correcto en la detección, el sistema fallaba en cumplir el requisito de predicción.
+2. Diagnóstico del Error Conceptual El análisis forense determinó que la arquitectura sufría de "Miopía Temporal":
+- Se había entrenado al modelo para responder a la pregunta: "¿Está fallando el sistema ahora?".
+- La pregunta correcta debía ser: "¿Fallará el sistema en el futuro inmediato?".
+
+Corrección Arquitectónica e Implementación Híbrida
+1. Estrategia de Corrección Para subsanar el error conceptual, se redefinió el objetivo del aprendizaje automático (ML) hacia la inferencia futura, estableciendo un Horizonte de Predicción de 120 segundos. Sin embargo, las pruebas de regresión revelaron una nueva limitación física en los datos.
+2. Segregación por Naturaleza del Evento (Solución Final) Al intentar aplicar la predicción universal, se descubrió que no todas las incidencias poseen "inercia predictiva":
+- Caso A: Saltos de Voltaje (Éxito Predictivo)
+  - Análisis: Los datos mostraron que los picos de tensión están precedidos por micro-oscilaciones y aceleraciones en la señal.
+  - Solución: Se implementó un modelo predictivo que alerta ante estos precursores, logrando anticipar el 96% de los eventos con 2 minutos de margen.
+- Caso B: Bloqueos de Señal (Limitación Física)
+  - Análisis: Los cortes de comunicación demostraron ser eventos estocásticos (aleatorios) y súbitos, carentes de precursores observables. Intentar predecirlos generaba alucinaciones (falsos positivos) en el modelo.
+  - Solución: Se mantuvo la Detección Reactiva exclusivamente para este caso, priorizando la fiabilidad (Recall 100%) sobre una predicción imposible.
+3. Conclusión Técnica La arquitectura final corrige el error conceptual inicial mediante un Enfoque Híbrido: predice lo que la física permite anticipar (desgaste/inestabilidad) y detecta instantáneamente lo que es accidental (roturas), cumpliendo así con los requisitos de seguridad y operatividad.
