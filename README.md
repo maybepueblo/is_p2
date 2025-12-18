@@ -51,8 +51,9 @@ Configuración Final (Validada): Tras la experimentación usando un grid search,
 - Profundidad (Max Depth): 6 (Balance entre complejidad y prevención de over-fitting).
 - Estimadores: 100 (Árboles de decisión).
 - Learning Rate: 0.1.
-
 Justificación: Esta combinación específica logró estabilizar la detección de saltos, reduciendo los falsos positivos en la clase normal.
+
+---
 
 5. Resultados Experimentales
 Rendimiento Global:
