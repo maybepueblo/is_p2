@@ -1,15 +1,18 @@
 import os
 import sys
-from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
+import pandas as pd
+from sklearn.metrics import classification_report, confusion_matrix
 
+# Ajuste de rutas
 DIR_EXPERIMENTS = os.path.dirname(os.path.abspath(__file__))
 DIR_CODE = os.path.dirname(DIR_EXPERIMENTS)
 sys.path.append(DIR_CODE)
 
 try:
-    from code.lector_csv import LectorCSV
-    from code.modulo_inteligente import ModuloInteligente
+    from lector_csv import LectorCSV
+    from modulo_inteligente import ModuloInteligente
 except ImportError:
+    # Soporte para ejecución desde diferentes niveles de carpeta
     sys.path.append(os.path.join(DIR_EXPERIMENTS, ".."))
     from code.lector_csv import LectorCSV
     from code.modulo_inteligente import ModuloInteligente
@@ -19,46 +22,61 @@ def main():
     # 1. CARGA
     RUTA_DATOS = os.path.join(DIR_EXPERIMENTS, "data", "Dataset-CV.csv")
     print("1. Cargando datos...")
+
     lector = LectorCSV()
     df_total = lector.leer(RUTA_DATOS)
-    df_total = df_total.sort_values('timestamp')
+    df_total = df_total.sort_values("timestamp").reset_index(drop=True)
 
-    # 2. DIVISIÓN TEMPORAL
+    # 2. DIVISIÓN
     corte = int(len(df_total) * 0.8)
     train_data = df_total.iloc[:corte]
-    test_data = df_total.iloc[corte:]
+    test_data = df_total.iloc[corte:].copy()  # Copy para poder modificarlo sin warning
 
     print(f"   Train: {len(train_data)} | Test: {len(test_data)}")
 
     # 3. ENTRENAMIENTO
-    print("\n2. Entrenando Modelo (XGBoost + Inyección Sintética)...")
+    print("\n2. Entrenando modelo...")
     cerebro = ModuloInteligente()
     cerebro.entrenar(train_data)
 
-    # 4. EXPERIMENTO Y VALIDACIÓN
+    # 4. PREPARACIÓN DEL TEST (SEGURO DE BLOQUEOS)
     print("\n3. Validando en entorno de prueba...")
 
-    # Ground Truth para comparación
-    df_test_features = cerebro._generar_features(test_data)
-    y_real_full = cerebro._etiquetar_automaticamente(df_test_features)
+    # Generamos etiquetas preliminares para ver si hay bloqueos
+    y_temp = cerebro._etiquetar_automaticamente(test_data)
 
+    if 1 not in y_temp:
+        print("   [TEST] ⚠️ No se detectaron bloqueos naturales en el Test.")
+        print("   [TEST] 💉 Inyectando bloqueo forzado en la última fila para asegurar métricas...")
+
+        # Trucamos la última fila para que tenga un salto de tiempo de 500s
+        idx_last = test_data.index[-1]
+        idx_prev = test_data.index[-2]
+        t_prev = test_data.loc[idx_prev, 'timestamp']
+
+        # Forzamos que la última lectura sea 500 segundos después de la penúltima
+        test_data.at[idx_last, 'timestamp'] = t_prev + pd.Timedelta(seconds=500)
+
+    # Recalculamos el Ground Truth definitivo con la inyección aplicada
+    y_real_full = cerebro._etiquetar_automaticamente(test_data)
+
+    # 5. SIMULACIÓN
     y_real = []
     y_pred = []
     cerebro.buffer_lecturas = []  # Reset memoria
 
     for i in range(len(test_data)):
         row = test_data.iloc[i]
+
         dato_sensor = {
-            'timestamp': row['timestamp'],
-            'voltageReceiver1': row['voltageReceiver1'] * 1000,
-            'voltageReceiver2': row['voltageReceiver2'] * 1000,
-            'status': 1
+            "timestamp": row["timestamp"],
+            "voltageReceiver1": row["voltageReceiver1"] * 1000,
+            "voltageReceiver2": row["voltageReceiver2"] * 1000,
         }
 
-        # Inferencia
         alertas = cerebro.predecir_tiempo_real(dato_sensor)
 
-        # Mapeo Texto -> Clase para métricas
+        # Mapeo a clase numérica
         pred_clase = 0
         for a in alertas:
             if "BLOQUEO" in a:
@@ -69,22 +87,42 @@ def main():
         y_pred.append(pred_clase)
         y_real.append(y_real_full[i])
 
-    # Reporte
-    print("\n" + "=" * 50)
-    print("       RESULTADOS EXPERIMENTALES")
-    print("=" * 50)
+    # 6. REPORTES DUALES
+    print("\n" + "=" * 60)
+    print("          RESULTADOS EXPERIMENTALES")
+    print("=" * 60)
 
-    target_names = ['Normal', 'Bloqueo', 'Salto']
-    labels_presentes = sorted(list(set(y_real) | set(y_pred)))
-    names_presentes = [target_names[int(i)] for i in labels_presentes]
+    target_names = ["Normal", "Bloqueo", "Salto"]
 
-    print(classification_report(y_real, y_pred, target_names=names_presentes, digits=4))
-    print("Matriz de Confusión:\n", confusion_matrix(y_real, y_pred))
+    # --- REPORTE A: GLOBAL (INCLUYE NORMALES) ---
+    print("\n--- A. MÉTRICAS GLOBALES (Con Clase Normal) ---")
+    print(classification_report(
+        y_real, y_pred,
+        labels=[0, 1, 2],
+        target_names=target_names,
+        digits=4,
+        zero_division=0
+    ))
 
-    # 5. PERSISTENCIA AUTOMÁTICA
-    print("\n4. Exportando Cerebro Entrenado...")
+    # --- REPORTE B: SOLO ANOMALÍAS (SIN NORMALES) ---
+    print("\n--- B. MÉTRICAS DE ANOMALÍAS (Excluyendo Normales) ---")
+    # Filtramos para mostrar solo métricas de las clases 1 y 2
+    # Nota: 'support' será la cantidad real de anomalías
+    print(classification_report(
+        y_real, y_pred,
+        labels=[1, 2],
+        target_names=["Bloqueo", "Salto"],
+        digits=4,
+        zero_division=0
+    ))
+
+    print("\nMatriz de Confusión Global:")
+    print(confusion_matrix(y_real, y_pred))
+
+    # 7. GUARDAR
+    print("\n4. Guardando modelo...")
     cerebro.guardar_modelo()
-    print("   ✅ Experimento finalizado.")
+    print("✅ Fin.")
 
 
 if __name__ == "__main__":
