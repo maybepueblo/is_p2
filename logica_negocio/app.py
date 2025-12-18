@@ -2,7 +2,6 @@ import sys
 import os
 from flask import Flask, jsonify, render_template, request
 
-# Ajusta esta ruta para apuntar a tu carpeta de lógica
 sys.path.append(os.path.join(os.path.dirname(__file__), 'logica_negocio'))
 
 from sistema_transporte import SistemaTransporte
@@ -10,8 +9,6 @@ from cliente import Cliente
 
 app = Flask(__name__)
 
-
-# --- CLASE ESPECIAL PARA LA WEB (PATRÓN OBSERVER) ---
 class ClienteMonitorWeb(Cliente):
     """
     Cliente 'espía' que permite a la web ver lo que pasa en el sistema.
@@ -97,7 +94,7 @@ def api_estado():
 @app.route('/api/usuarios', methods=['POST'])
 def api_nuevo_usuario():
     """
-    Registra un usuario suscrito al tópico 1, 2 o 3.
+    Registra un usuario suscrito al topic 1, 2 o 3.
     """
     datos = request.get_json()
     email = datos.get('email')
