@@ -87,3 +87,16 @@ class SistemaTransporte:
 
         else:
             print("✅ Sistema estable. No se prevén anomalías.")
+
+    def publicar_incidencia(self, cliente: Cliente, tema: str, mensaje: str):
+
+        # 1. Validación de seguridad
+        if not cliente.es_admin:
+            print(f"❌ ACCESO DENEGADO: El usuario {cliente.email} no tiene permisos de administrador.")
+            return
+
+        # 2. Orquestación: Se delega la difusión al Publisher
+        print(f"📢 Publicación autorizada para: {cliente.email}")
+        aviso = f"⚠️ AVISO MANUAL (Admin: {cliente.email}): {mensaje}"
+
+        self.publisher.notificar(aviso, tema)
