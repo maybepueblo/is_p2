@@ -52,8 +52,10 @@ class SistemaTransporte:
         if usuario not in self.catalogo_clientes:
             self.catalogo_clientes.append(usuario)
 
-    def desuscribir_usuario(self, usuario: Cliente, tipo_incidencia: str):
-        self.publisher.desuscribir(usuario, tipo_incidencia)
+    def desuscribir_usuario(self, email: str, tipo_incidencia: str):
+        usuario = next((c for c in self.catalogo_clientes if c.email == email), None)
+        if usuario:
+            self.publisher.desuscribir(usuario, tipo_incidencia)
 
     def detectar_y_notificar(self):
         print("--- 🔍 Iniciando ciclo de detección y predicción ---")
@@ -76,15 +78,15 @@ class SistemaTransporte:
             # --- NUEVA LÓGICA DE CLASIFICACIÓN ---
             # Leemos el texto de la alerta para saber a qué canal enviarla
             for alerta in incidencias:
-                if "BLOQUEO" in alerta:
+                if "BLOQUEO" in alerta.upper():
                     self.publisher.notificar(alerta, "Bloqueo")
 
-                elif "SALTO" in alerta:
+                elif "SALTO" in alerta.upper():
                     self.publisher.notificar(alerta, "Salto")
 
                 else:
                     # Fallback por si hay otro tipo
-                    self.publisher.notificar(alerta, "Mantenimiento")
+                    self.publisher.notificar(alerta, "Ambos")
         else:
             print("✅ Sistema estable. No se prevén anomalías.")
 

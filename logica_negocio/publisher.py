@@ -5,7 +5,11 @@ from interfaces import Suscriber
 class Publisher:
     def __init__(self):
         # Diccionario: Clave=Tema, Valor=Lista de Suscriptores
-        self._suscriptores: Dict[str, List[Suscriber]] = {}
+        self._suscriptores: Dict[str, List[Suscriber]] = {
+            "Bloqueo" : [],
+            "Salto" : [],
+            "Ambos" : []
+        }
 
     def suscribir(self, suscriptor: Suscriber, tema: str):
         if tema not in self._suscriptores:
@@ -17,8 +21,13 @@ class Publisher:
     def desuscribir(self, suscriptor: Suscriber, tema: str):
         if tema in self._suscriptores and suscriptor in self._suscriptores[tema]:
             self._suscriptores[tema].remove(suscriptor)
+            print(f"DEBUG: Suscriptor desuscrito del tema '{tema}'.")
 
     def notificar(self, incidencia: str, tema: str):
         if tema in self._suscriptores:
             for suscriptor in self._suscriptores[tema]:
                 suscriptor.update(incidencia)
+
+        if tema != "Ambos":
+            for suscriptor in self._suscriptores["Ambos"]:
+                suscriptor.update(f"[Global] {incidencia}")
