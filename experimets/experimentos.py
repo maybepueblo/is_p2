@@ -14,8 +14,8 @@ try:
 except ImportError:
     # Soporte para ejecución desde diferentes niveles de carpeta
     sys.path.append(os.path.join(DIR_EXPERIMENTS, ".."))
-    from code.lector_csv import LectorCSV
-    from code.modulo_inteligente import ModuloInteligente
+    from logica_negocio.lector_csv import LectorCSV
+    from logica_negocio.modulo_inteligente import ModuloInteligente
 
 
 def main():

@@ -12,9 +12,9 @@ try:
     from lector_csv import LectorCSV
     from modulo_inteligente import ModuloInteligente
 except ImportError:
-    sys.path.append(os.path.join(os.path.dirname(DIR_EXPERIMENTS), "code"))
-    from code.lector_csv import LectorCSV
-    from code.modulo_inteligente import ModuloInteligente
+    sys.path.append(os.path.join(os.path.dirname(DIR_EXPERIMENTS), "logica_negocio"))
+    from logica_negocio.lector_csv import LectorCSV
+    from logica_negocio.modulo_inteligente import ModuloInteligente
 
 
 def evaluar_configuracion(train_data, test_data, window_size, xgb_params):
