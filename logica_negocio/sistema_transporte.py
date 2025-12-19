@@ -1,7 +1,6 @@
 from typing import List
 from cliente import Cliente
 from lector_csv import LectorCSV
-from visualizador import VisualizadorIncidencias
 from modulo_inteligente import ModuloInteligente
 from publisher import Publisher
 
@@ -10,7 +9,6 @@ class SistemaTransporte:
     def __init__(self):
         self.catalogo_clientes: List[Cliente] = []
         self.lector_csv = LectorCSV()
-        self.visualizador = VisualizadorIncidencias()
         self.publisher = Publisher()
         self.datos_actuales = None
         self.modulo_inteligente = ModuloInteligente()

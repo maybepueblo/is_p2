@@ -85,7 +85,6 @@ is_p2/
 │   ├── publisher.py           # Publisher (Observer)
 │   ├── cliente.py             # Entidad Subscriber
 │   ├── lector_csv.py          # Ingesta de datos
-│   ├── visualizador.py        # Gráficas estáticas
 │   └── interfaces.py          # Contratos e interfaces
 │
 ├── pyproject.toml             # Dependencias y configuración del proyecto
