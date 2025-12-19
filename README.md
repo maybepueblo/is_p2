@@ -74,7 +74,7 @@ is_p2/
 │   ├── check_bloqueos.py      # Análisis de bloqueos del dataset
 │   └── grid_search.py         # Búsqueda de hiperparámetros
 │
-├── logica_negocio/            # Núcleo del sistema
+├── server/                    # Núcleo del sistema
 │   ├── model/                 # Modelo entrenado (.pkl)
 │   ├── templates/
 │   │   └── index.html         # Dashboard Web
@@ -150,7 +150,7 @@ source .venv/bin/activate
 ### 4. Ejecutar la aplicación web
 
 ```bash
-python logica_negocio/app.py
+python server/app.py
 ```
 
 Abrir en el navegador:

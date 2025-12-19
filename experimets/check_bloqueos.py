@@ -2,7 +2,7 @@ import pandas as pd
 import os
 
 # Importar la clase LectorCSV
-from logica_negocio.lector_csv import LectorCSV
+from server.lector_csv import LectorCSV
 
 # =====================
 # CONFIGURACIÓN
