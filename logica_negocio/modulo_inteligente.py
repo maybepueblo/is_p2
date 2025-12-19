@@ -8,268 +8,123 @@ from typing import List, Dict
 
 class ModuloInteligente:
     def __init__(self):
-        # =====================
-        # CONFIGURACIÓN GENERAL
-        # =====================
-        self.UMBRAL_VOLTAJE = 0.5  # V
-        self.LIMITE_TIEMPO_SEC = 120  # s
-        self.HORIZONTE_PREDICCION_SEC = 120  # s
-
+        self.UMBRAL_VOLTAJE = 0.5
+        self.LIMITE_TIEMPO_SEC = 120
+        self.HORIZONTE_PREDICCION_SEC = 120
         self.WINDOW_SIZE = 10
-
         self.MODEL_DIR = "model"
         self.MODEL_FILENAME = "modelo_ferroviario_predictivo.pkl"
 
-        # =====================
-        # MODELO ML
-        # =====================
-        self.model = xgb.XGBClassifier(
-            n_estimators=100,
-            learning_rate=0.1,
-            max_depth=6,
-            subsample=0.8,
-            colsample_bytree=0.8,
-            objective="multi:softprob",
-            num_class=3,
-            eval_metric="mlogloss",
-            random_state=42,
-        )
-
+        self.model = None
         self.features_entrenamiento = []
         self.is_trained = False
-
-        # Buffer para tiempo real (solo usado en streaming individual)
         self.buffer_lecturas = []
 
-    # ==========================================================
-    # INGENIERÍA DE FEATURES (SOLO PASADO)
-    # ==========================================================
     def _generar_features(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Ingeniería de características optimizada.
-        Incluye 'diff' para precisión y 'delta_t_rolling' para evitar errores.
-        """
         df = df.copy()
-
-        # 1. Delta Tiempo (Fundamental para Bloqueos)
         df["delta_t"] = df["timestamp"].diff().dt.total_seconds().fillna(0)
-
         for col in ["voltageReceiver1", "voltageReceiver2"]:
             df[col] = df[col].astype(float)
-
-            # --- MEJORA CLAVE 1: Diferencia instantánea ---
             df[f"{col}_diff"] = df[col].diff().fillna(0)
-
-            # Estadísticas de Ventana
             df[f"{col}_mean"] = df[col].rolling(self.WINDOW_SIZE).mean().fillna(0)
             df[f"{col}_std"] = df[col].rolling(self.WINDOW_SIZE).std().fillna(0)
-
-            # --- MEJORA CLAVE 2: Desviación (Sustituye a trend) ---
             df[f"{col}_dev"] = abs(df[col] - df[f"{col}_mean"])
-
-        # --- MEJORA CLAVE 3: Corrección del Crash ---
-        # Necesario porque la inyección de datos sintéticos usa esta columna
         df["delta_t_rolling"] = df["delta_t"].rolling(self.WINDOW_SIZE).mean().fillna(0)
-
         return df.fillna(0)
 
-    # ==========================================================
-    # ETIQUETADO AUTOMÁTICO A FUTURO
-    # ==========================================================
     def _etiquetar_automaticamente(self, df: pd.DataFrame) -> np.ndarray:
-        """
-        Estrategia Híbrida:
-        - Bloqueos: Se etiquetan en el momento que ocurren (Reactivo).
-        - Saltos: Se etiquetan mirando al futuro (Predictivo).
-        """
         y = np.zeros(len(df), dtype=int)
-
         timestamps = df["timestamp"].values
         v1 = df["voltageReceiver1"].values
         v2 = df["voltageReceiver2"].values
 
         for i in range(len(df)):
             t0 = timestamps[i]
-
-            # 1. LÓGICA REACTIVA PARA BLOQUEOS
-            gap_actual = 0
+            # Reactivo (Bloqueos)
+            gap = 0
             if i > 0:
-                gap_actual = (
-                    (timestamps[i] - timestamps[i - 1])
-                    .astype("timedelta64[s]")
-                    .item()
-                    .seconds
-                )
-
-            if gap_actual > self.LIMITE_TIEMPO_SEC:
+                gap = (timestamps[i] - timestamps[i - 1]).astype("timedelta64[s]").item().seconds
+            if gap > self.LIMITE_TIEMPO_SEC:
                 y[i] = 1
                 continue
-
-            # 2. LÓGICA PREDICTIVA PARA SALTOS
+            # Predictivo (Saltos)
             j = i + 1
             while j < len(df):
-                delta_futuro = (
-                    (timestamps[j] - t0).astype("timedelta64[s]").item().seconds
-                )
-
-                if delta_futuro > self.HORIZONTE_PREDICCION_SEC:
-                    break
-
+                delta = (timestamps[j] - t0).astype("timedelta64[s]").item().seconds
+                if delta > self.HORIZONTE_PREDICCION_SEC: break
                 if j > 0:
-                    salto_v1 = abs(v1[j] - v1[j - 1])
-                    salto_v2 = abs(v2[j] - v2[j - 1])
-
-                    if (
-                            salto_v1 >= self.UMBRAL_VOLTAJE
-                            or salto_v2 >= self.UMBRAL_VOLTAJE
-                    ):
+                    if abs(v1[j] - v1[j - 1]) >= self.UMBRAL_VOLTAJE or abs(v2[j] - v2[j - 1]) >= self.UMBRAL_VOLTAJE:
                         y[i] = 2
                         break
-
                 j += 1
         return y
 
-    # ==========================================================
-    # ENTRENAMIENTO
-    # ==========================================================
     def entrenar(self, datos_historicos: pd.DataFrame):
-        print(
-            f"   [ML] Procesando {len(datos_historicos)} registros para entrenamiento..."
-        )
-
+        print(f"   [ML] Procesando {len(datos_historicos)} registros...")
         X = self._generar_features(datos_historicos)
         y = self._etiquetar_automaticamente(X)
 
-        cols_drop = ["timestamp", "medida", "id", "canal", "valor", "status"]
-        features_validas = [
-            c for c in X.columns if c not in cols_drop and "tiempo" not in c
-        ]
+        features_validas = [c for c in X.columns if
+                            "timestamp" not in c and "medida" not in c and "id" not in c and "canal" not in c and "valor" not in c and "status" not in c]
         self.features_entrenamiento = features_validas
         X_final = X[features_validas].copy()
 
-        # Inyección Sintética Bloqueos
-        clases_presentes = np.unique(y)
-        conteo_bloqueos = np.count_nonzero(y == 1)
-
-        if conteo_bloqueos < 500:
-            CANTIDAD_A_INYECTAR = 2000
-            print(
-                f"   [ML] ⚠️ Pocos Bloqueos reales ({conteo_bloqueos}). Inyectando {CANTIDAD_A_INYECTAR} muestras sintéticas..."
-            )
-            indices_base = np.random.choice(
-                X_final.index, CANTIDAD_A_INYECTAR, replace=True
-            )
-            df_sintetico = X_final.loc[indices_base].copy()
-
-            tiempos_bloqueo = np.random.uniform(
-                self.LIMITE_TIEMPO_SEC + 5, 1000, CANTIDAD_A_INYECTAR
-            )
-            df_sintetico["delta_t"] = tiempos_bloqueo
-            df_sintetico["delta_t_rolling"] = tiempos_bloqueo
-
-            X_final = pd.concat([X_final, df_sintetico], ignore_index=True)
-            y = np.append(y, [1] * CANTIDAD_A_INYECTAR)
-
-        unique, counts = np.unique(y, return_counts=True)
-        print(
-            f"   [ML] Distribución de clases para entrenamiento: {dict(zip(unique, counts))}"
-        )
+        # Inyección sintética
+        if np.count_nonzero(y == 1) < 500:
+            print("   [ML] 💉 Inyectando 2000 bloqueos sintéticos...")
+            indices = np.random.choice(X_final.index, 2000, replace=True)
+            df_sint = X_final.loc[indices].copy()
+            df_sint["delta_t"] = np.random.uniform(130, 1000, 2000)
+            df_sint["delta_t_rolling"] = df_sint["delta_t"]
+            X_final = pd.concat([X_final, df_sint], ignore_index=True)
+            y = np.append(y, [1] * 2000)
 
         self.model.fit(X_final, y)
         self.is_trained = True
-        print("   [ML] Cerebro entrenado y listo para detectar bloqueos.")
+        print("   [ML] Modelo entrenado.")
 
-    # ==========================================================
-    # GUARDAR / CARGAR MODELO
-    # ==========================================================
     def guardar_modelo(self):
-        if not os.path.exists(self.MODEL_DIR):
-            os.makedirs(self.MODEL_DIR)
-
+        if not os.path.exists(self.MODEL_DIR): os.makedirs(self.MODEL_DIR)
         path = os.path.join(self.MODEL_DIR, self.MODEL_FILENAME)
-
-        joblib.dump(
-            {
-                "model": self.model,
-                "features": self.features_entrenamiento,
-                "trained": self.is_trained,
-            },
-            path,
-        )
-        print(f"[ML] Modelo guardado en {path}")
+        joblib.dump({"model": self.model, "features": self.features_entrenamiento, "trained": self.is_trained}, path)
+        print(f"[ML] Guardado en {path}")
 
     def cargar_modelo(self) -> bool:
-        # Asegúrate de que la ruta sea absoluta respecto a este archivo para evitar errores
         base_dir = os.path.dirname(os.path.abspath(__file__))
-
-        # Intentamos ruta relativa hacia arriba (estructura producción)
         path = os.path.join(base_dir, "..", self.MODEL_DIR, self.MODEL_FILENAME)
-
-        # Fallback por si ejecutas desde raíz
-        if not os.path.exists(path):
-            path = os.path.join(self.MODEL_DIR, self.MODEL_FILENAME)
+        if not os.path.exists(path): path = os.path.join(self.MODEL_DIR, self.MODEL_FILENAME)
 
         if os.path.exists(path):
-            try:
-                d = joblib.load(path)
-                self.model = d['model']
-                self.features_entrenamiento = d['features']
-                self.is_trained = True
-                print(f"[ML] Modelo cargado desde: {path}")
-                return True
-            except Exception as e:
-                print(f"[ML] Error cargando modelo: {e}")
-                return False
-
+            d = joblib.load(path)
+            self.model = d['model']
+            self.features_entrenamiento = d['features']
+            self.is_trained = True
+            print(f"[ML] Modelo cargado desde: {path}")
+            return True
         return False
 
     # ==========================================================
-    # 🚀 ANÁLISIS EN BATCH (MÉTODO RÁPIDO)
+    # ⚡ ANÁLISIS EN BATCH (OPTIMIZADO)
     # ==========================================================
     def analizar_todo(self, df: pd.DataFrame) -> List[str]:
-        """
-        Realiza inferencia vectorial sobre todo el DataFrame a la vez.
-        Velocidad: ~0.1s para 100k registros.
-        """
-        if not self.is_trained:
-            return ["⚠️ Error: Modelo no cargado."]
+        if not self.is_trained: return ["⚠️ Modelo no cargado"]
 
-        # 1. Feature Engineering Masivo (Vectorizado)
-        # Pandas calcula todas las columnas de golpe, mucho más rápido que filas sueltas
+        # 1. Features Vectorizadas
         df_features = self._generar_features(df)
+        X_batch = df_features[self.features_entrenamiento]
 
-        # 2. Seleccionar solo las columnas que el modelo aprendió
-        try:
-            X_batch = df_features[self.features_entrenamiento]
-        except KeyError as e:
-            return [f"⚠️ Error columnas: {e}. Revisa si cambiaste las features sin re-entrenar."]
-
-        # 3. Predicción Masiva (La magia de C/C++ bajo XGBoost)
-        # Le pasamos 100.000 filas de golpe y nos devuelve 100.000 números
+        # 2. Predicción Masiva
         preds = self.model.predict(X_batch)
 
-        # 4. Decodificación Rápida (Usando índices de Numpy)
-        alertas = []
-        timestamps = df['timestamp'].values  # Acceso rápido a fechas
+        # 3. GENERACIÓN DE ALERTAS (OPTIMIZADA) 🚀
+        # En lugar de un bucle 'for' lento, usamos índices directos
+        timestamps = df['timestamp'].dt.strftime('%Y-%m-%d %H:%M:%S').values
 
-        # Buscamos dónde hay 1s (Bloqueos) y 2s (Saltos)
         idx_bloqueos = np.where(preds == 1)[0]
         idx_saltos = np.where(preds == 2)[0]
 
-        # Formateamos solo las alertas encontradas
-        for i in idx_bloqueos:
-            ts = pd.to_datetime(timestamps[i])
-            alertas.append(f"🔴 BLOQUEO DETECTADO en {ts}")
+        # Creación ultrarrápida de listas
+        alertas_bloqueos = [f"🔴 BLOQUEO DETECTADO en {t}" for t in timestamps[idx_bloqueos]]
+        alertas_saltos = [f"⚠️ PREDICCIÓN SALTO (Horizonte 120s) en {t}" for t in timestamps[idx_saltos]]
 
-        for i in idx_saltos:
-            ts = pd.to_datetime(timestamps[i])
-            alertas.append(f"⚠️ PREDICCIÓN SALTO (Horizonte 120s) en {ts}")
-
-        # Devolvemos la lista completa (sistema_transporte decidirá cuántas mostrar)
-        return alertas
-
-    # Mantenemos este por compatibilidad si algo lo llama, pero no se usa en batch
-    def predecir_tiempo_real(self, lectura: Dict) -> List[str]:
-        if not self.is_trained: return []
-        # ... (implementación antigua, irrelevante para modo rápido) ...
-        return []
+        return alertas_bloqueos + alertas_saltos

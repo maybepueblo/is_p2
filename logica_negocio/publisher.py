@@ -1,14 +1,13 @@
 from typing import List, Dict
 from interfaces import Suscriber
 
-
 class Publisher:
     def __init__(self):
         # Diccionario: Clave=Tema, Valor=Lista de Suscriptores
         self._suscriptores: Dict[str, List[Suscriber]] = {
             "Bloqueo" : [],
             "Salto" : [],
-            "Ambos" : []
+            "System" : [] # Canal solo para mensajes técnicos (arranque, etc)
         }
 
     def suscribir(self, suscriptor: Suscriber, tema: str):
@@ -16,18 +15,13 @@ class Publisher:
             self._suscriptores[tema] = []
         if suscriptor not in self._suscriptores[tema]:
             self._suscriptores[tema].append(suscriptor)
-            print(f"DEBUG: Suscriptor añadido al tema '{tema}'.")
 
     def desuscribir(self, suscriptor: Suscriber, tema: str):
         if tema in self._suscriptores and suscriptor in self._suscriptores[tema]:
             self._suscriptores[tema].remove(suscriptor)
-            print(f"DEBUG: Suscriptor desuscrito del tema '{tema}'.")
 
     def notificar(self, incidencia: str, tema: str):
+        # SOLO notifica a los suscritos a ese tema. Sin magia extra.
         if tema in self._suscriptores:
             for suscriptor in self._suscriptores[tema]:
                 suscriptor.update(incidencia)
-
-        if tema != "Ambos":
-            for suscriptor in self._suscriptores["Ambos"]:
-                suscriptor.update(f"[Global] {incidencia}")
