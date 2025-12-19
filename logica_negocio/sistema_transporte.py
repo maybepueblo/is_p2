@@ -100,6 +100,11 @@ class SistemaTransporte:
         self.publisher.notificar(aviso, tema)
 
     def ver_estadisticas(self, usuario: Cliente):
-        # Mantenemos el método original
-        if self.datos_actuales is not None:
-            self.visualizador.generar_grafica_tendencia(self.datos_actuales)
+        if self.datos_actuales is None:
+            return
+
+        incidencias = self.modulo_inteligente.analizar_todo(self.datos_actuales)
+
+        self.visualizador.generar_grafica_incidencias(incidencias)  # Histograma
+        self.visualizador.generar_grafica_sectores(incidencias)  # Tarta (Nuevo)
+        self.visualizador.generar_grafica_tendencia(self.datos_actuales)  # Líneas
