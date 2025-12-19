@@ -105,32 +105,49 @@ def api_aviso_manual():
     return jsonify({"error": "Vacío"}), 400
 
 
+# Variable global para saber por dónde vamos "leyendo" el CSV
+# Simula el paso del tiempo.
+CURSOR_GRAFICA = 0
+
+
 @app.route('/api/grafica')
 def api_grafica():
     """
-    Devuelve los datos de voltaje para la gráfica.
-    Para que sea rápido, devolvemos solo los últimos 200 puntos.
+    Simula un streaming de datos avanzando por el CSV.
+    Cada vez que la web pregunta, avanzamos el cursor.
     """
+    global CURSOR_GRAFICA
+
     if sistema.datos_actuales is None or sistema.datos_actuales.empty:
         return jsonify({"labels": [], "v1": [], "v2": []})
 
-    # Cogemos los últimos 200 registros para simular "tiempo real" y que no se sature
-    # Si quieres ver todo, quita el .tail(200), pero cuidado con el rendimiento del navegador
-    datos_recientes = sistema.datos_actuales.tail(200)
+    total_filas = len(sistema.datos_actuales)
 
-    # Preparamos JSON
-    # Convertimos timestamp a string solo con la hora (HH:MM:SS) para que ocupe menos en el eje X
-    labels = datos_recientes['timestamp'].dt.strftime('%H:%M:%S').tolist()
+    # Definimos el tamaño de la ventana (cuántos puntos se ven a la vez)
+    VENTANA_VISIBLE = 50
 
-    # Aseguramos que son float estándar de Python (no numpy types)
-    v1 = datos_recientes['voltageReceiver1'].astype(float).tolist()
-    v2 = datos_recientes['voltageReceiver2'].astype(float).tolist()
+    # Si hemos llegado al final del archivo, volvemos a empezar (Bucle infinito)
+    if CURSOR_GRAFICA + VENTANA_VISIBLE >= total_filas:
+        CURSOR_GRAFICA = 0
+
+    # Extraemos el "trozo" actual del CSV
+    datos_slice = sistema.datos_actuales.iloc[CURSOR_GRAFICA: CURSOR_GRAFICA + VENTANA_VISIBLE]
+
+    # Preparamos los datos
+    labels = datos_slice['timestamp'].dt.strftime('%H:%M:%S').tolist()
+    v1 = datos_slice['voltageReceiver1'].astype(float).tolist()
+    v2 = datos_slice['voltageReceiver2'].astype(float).tolist()
+
+    # AVANZAMOS EL CURSOR PARA LA PRÓXIMA VEZ
+    # Avanzamos 5 filas cada vez que se actualiza (simula velocidad)
+    CURSOR_GRAFICA += 5
 
     return jsonify({
         "labels": labels,
         "v1": v1,
         "v2": v2
     })
+
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
