@@ -27,7 +27,7 @@ class SistemaTransporte:
             print("⚠️ ADVERTENCIA: No se encontró modelo entrenado.")
 
     def carga_datos(self, ruta_archivo: str):
-        print(f"📥 Cargando datos operativos desde {ruta_archivo}...")
+        print(f"📥 Cargando datos masivos desde {ruta_archivo}...")
         try:
             self.datos_actuales = self.lector_csv.leer(ruta_archivo)
             if not self.datos_actuales.empty:
@@ -38,15 +38,10 @@ class SistemaTransporte:
             print(f"   Error crítico al leer CSV: {e}")
 
     def suscribir_usuario(self, usuario: Cliente, tipo_incidencia: str):
-        """
-        Lógica corregida para soportar suscripciones múltiples.
-        """
         if tipo_incidencia == "Ambos":
-            # Suscribimos al usuario a LOS DOS canales principales
             self.publisher.suscribir(usuario, "Bloqueo")
             self.publisher.suscribir(usuario, "Salto")
         else:
-            # Suscripción normal (solo Bloqueo o solo Salto)
             self.publisher.suscribir(usuario, tipo_incidencia)
 
         if usuario not in self.catalogo_clientes:
@@ -58,7 +53,7 @@ class SistemaTransporte:
             self.publisher.desuscribir(usuario, tipo_incidencia)
 
     def detectar_y_notificar(self):
-        print("--- 🔍 Iniciando ciclo de detección y predicción ---")
+        print("--- 🔍 Iniciando análisis predictivo masivo ---")
 
         if self.datos_actuales is None:
             print("Error: No hay datos para analizar.")
@@ -68,24 +63,32 @@ class SistemaTransporte:
             print("Error: El modelo IA no está cargado/entrenado.")
             return
 
-        # Obtenemos predicciones de la IA (lista de strings)
+        # LLAMADA AL MÉTODO RÁPIDO (BATCH)
         incidencias = self.modulo_inteligente.analizar_todo(self.datos_actuales)
 
         if incidencias:
-            n = len(incidencias)
-            print(f"🚨 ALERTA: Se han detectado {n} incidencias.")
+            total = len(incidencias)
+            print(f"⚡ ANÁLISIS COMPLETADO: {total} eventos detectados.")
 
-            # --- NUEVA LÓGICA DE CLASIFICACIÓN ---
-            # Leemos el texto de la alerta para saber a qué canal enviarla
-            for alerta in incidencias:
+            # FILTRADO DE SEGURIDAD PARA LA WEB
+            # Si hay miles de alertas, enviamos solo las 50 más recientes para no bloquear el navegador
+            limit = 50
+            if total > limit:
+                # Ordenamos cronológicamente si vienen desordenadas (aunque numpy suele respetar orden)
+                # Tomamos las últimas 'limit' alertas
+                alertas_a_enviar = incidencias[-limit:]
+                aviso_sistema = f"ℹ️ SISTEMA: Se detectaron {total} eventos. Mostrando los {limit} más recientes..."
+                self.publisher.notificar(aviso_sistema, "Ambos")
+            else:
+                alertas_a_enviar = incidencias
+
+            # Notificamos una a una las seleccionadas
+            for alerta in alertas_a_enviar:
                 if "BLOQUEO" in alerta.upper():
                     self.publisher.notificar(alerta, "Bloqueo")
-
                 elif "SALTO" in alerta.upper():
                     self.publisher.notificar(alerta, "Salto")
-
                 else:
-                    # Fallback por si hay otro tipo
                     self.publisher.notificar(alerta, "Ambos")
         else:
             print("✅ Sistema estable. No se prevén anomalías.")
@@ -100,11 +103,9 @@ class SistemaTransporte:
         self.publisher.notificar(aviso, tema)
 
     def ver_estadisticas(self, usuario: Cliente):
-        if self.datos_actuales is None:
-            return
-
+        if self.datos_actuales is None: return
+        # Aquí también usamos el método rápido
         incidencias = self.modulo_inteligente.analizar_todo(self.datos_actuales)
-
-        self.visualizador.generar_grafica_incidencias(incidencias)  # Histograma
-        self.visualizador.generar_grafica_sectores(incidencias)  # Tarta (Nuevo)
-        self.visualizador.generar_grafica_tendencia(self.datos_actuales)  # Líneas
+        self.visualizador.generar_grafica_incidencias(incidencias)
+        self.visualizador.generar_grafica_sectores(incidencias)
+        self.visualizador.generar_grafica_tendencia(self.datos_actuales)
