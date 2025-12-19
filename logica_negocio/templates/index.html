@@ -6,133 +6,132 @@
     <title>Interfaz Metro - Sistema de Transporte</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        body { background-color: #e9ecef; }
+        body { background-color: #f8f9fa; }
         .monitor-screen {
             background-color: #fff;
-            min-height: 450px;
+            min-height: 500px;
             max-height: 600px;
             overflow-y: auto;
             border-radius: 10px;
             padding: 20px;
-            border-left: 5px solid #0d6efd;
+            border-left: 5px solid #6c757d; /* Gris por defecto */
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.05);
+            transition: border-color 0.5s;
         }
         .log-entry {
             padding: 12px;
             border-bottom: 1px solid #eee;
-            animation: fadeIn 0.5s;
+            animation: fadeIn 0.4s ease-out;
         }
-        .log-time {
-            font-size: 0.8em;
-            color: #888;
-            margin-right: 10px;
-        }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+        .log-time { font-size: 0.8em; color: #999; margin-left:10px; min-width: 60px; text-align: right;}
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 <body>
 
 <nav class="navbar navbar-dark bg-primary mb-4 shadow">
     <div class="container">
-        <span class="navbar-brand mb-0 h1">🚄 Panel de Control Centralizado</span>
-        <span class="badge bg-light text-primary" id="status-badge">Conectado</span>
+        <span class="navbar-brand mb-0 h1">🚄 Metro - Centro de Control</span>
+        <div class="text-white small">
+            Usuario actual: <span id="usuario-badge" class="badge bg-warning text-dark">ADMIN (Global)</span>
+        </div>
     </div>
 </nav>
 
 <div class="container">
     <div class="row">
         <div class="col-lg-8 mb-4">
-            <div class="card shadow">
-                <div class="card-header bg-white d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0 text-primary">📡 Monitor de Tráfico e Incidencias</h5>
-                    <small class="text-muted">Actualización: <span id="last-update">-</span></small>
+            <div class="card shadow h-100">
+                <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 text-primary fw-bold">📡 Buzón de Alertas</h5>
+                    <button id="btnRecalcular" class="btn btn-primary btn-sm shadow-sm" onclick="forzarRecalculo()">
+                        ⚡ Ejecutar Análisis IA
+                    </button>
                 </div>
+
                 <div class="monitor-screen" id="monitor-logs">
                     <div class="text-center text-muted mt-5">
-                        <div class="spinner-border text-primary" role="status"></div>
-                        <p class="mt-2">Estableciendo conexión con el Sistema de Transporte...</p>
+                        <p>Iniciando sistema...</p>
                     </div>
-                </div>
-                <div class="card-footer bg-light text-end">
-                    <button class="btn btn-sm btn-outline-primary" onclick="actualizarMonitor()">🔄 Refrescar Ahora</button>
                 </div>
             </div>
         </div>
 
         <div class="col-lg-4">
-
-            <div class="card shadow mb-4">
-                <div class="card-header bg-dark text-white">
-                    👤 Registrar Nuevo Operario
+            <div class="card shadow mb-4 border-primary">
+                <div class="card-header bg-primary text-white">
+                    👤 Simular Usuario
                 </div>
                 <div class="card-body">
+                    <p class="small text-muted">Regístrate para ver solo tus alertas.</p>
                     <form id="formUser">
                         <div class="mb-3">
-                            <label class="form-label">Correo Electrónico</label>
-                            <input type="email" class="form-control" id="emailUser" placeholder="ejemplo@metro.com" required>
+                            <label class="form-label">Email del Operario</label>
+                            <input type="email" class="form-control" id="emailUser" placeholder="ej: juan@metro.com" required>
                         </div>
 
                         <div class="mb-3">
-                            <label class="form-label">Canal de Alertas de Interés</label>
+                            <label class="form-label">Suscripción Real</label>
                             <select class="form-select" id="topicoUser" required>
-                                <option value="3" selected>🔔 Ambos (Bloqueos y Saltos)</option>
-                                <option value="1">🛑 Solo Bloqueos (Prioridad Alta)</option>
-                                <option value="2">⚡ Solo Saltos de Tensión</option>
+                                <option value="3">🔔 Ambos (Global)</option>
+                                <option value="1">🛑 Solo Bloqueos (Seguridad)</option>
+                                <option value="2">⚡ Solo Predicciones (Mantenimiento)</option>
                             </select>
-                            <div class="form-text small">El usuario recibirá notificaciones solo de lo seleccionado.</div>
                         </div>
 
-                        <button type="submit" class="btn btn-success w-100">Dar de Alta</button>
+                        <button type="submit" class="btn btn-outline-primary w-100">Registrar y Ver Buzón</button>
                     </form>
+
+                    <hr>
+                    <button onclick="verComoAdmin()" class="btn btn-sm btn-secondary w-100">Volver a vista Admin (Ver todo)</button>
                 </div>
             </div>
 
             <div class="card shadow border-warning">
-                <div class="card-header bg-warning text-dark fw-bold">
-                    📢 Difusión Manual (Admin)
-                </div>
+                <div class="card-header bg-warning text-dark fw-bold">📢 Aviso Manual</div>
                 <div class="card-body">
-                    <p class="small text-muted">Enviar mensaje a todos los canales (Bloqueo y Salto).</p>
-                    <textarea class="form-control mb-2" id="txtAviso" rows="3" placeholder="Escriba el aviso..."></textarea>
-                    <button onclick="enviarAviso()" class="btn btn-warning w-100">📢 Publicar Aviso</button>
+                    <textarea class="form-control mb-2" id="txtAviso" rows="2" placeholder="Mensaje a todos..."></textarea>
+                    <button onclick="enviarAviso()" class="btn btn-warning w-100 btn-sm">Enviar</button>
                 </div>
             </div>
-
         </div>
     </div>
 </div>
 
 <script>
+    // ESTADO DE LA APLICACIÓN
+    let usuarioActualEmail = ""; // Vacío = Modo Admin
 
+    // 1. POLLING (Bucle principal)
     async function actualizarMonitor() {
         try {
-            const res = await fetch('/api/estado');
+            // Pedimos alertas a la API pasando el email del usuario actual
+            // Si está vacío, la API nos da el buzón del Admin
+            const url = usuarioActualEmail ? `/api/estado?email=${usuarioActualEmail}` : '/api/estado';
+
+            const res = await fetch(url);
             const datos = await res.json();
 
             const contenedor = document.getElementById('monitor-logs');
-            contenedor.innerHTML = ''; // Limpiamos pantalla
-
-            // Actualizamos hora
-            const ahora = new Date().toLocaleTimeString();
-            document.getElementById('last-update').innerText = ahora;
+            contenedor.innerHTML = '';
 
             if(datos.length === 0) {
-                 contenedor.innerHTML = '<div class="text-center text-muted mt-5">Sin datos disponibles.</div>';
+                 contenedor.innerHTML = '<div class="text-center text-muted mt-5">Buzón vacío. Pulsa "Ejecutar Análisis".</div>';
                  return;
             }
 
             datos.forEach(d => {
-                // Estilos según el tipo de alerta devuelto por Python
                 let badgeClass = "bg-secondary";
                 let rowClass = "bg-light";
                 let icon = "ℹ️";
 
                 if (d.tipo.includes("PELIGRO")) {
                     badgeClass = "bg-danger";
-                    rowClass = "bg-danger-subtle border-danger";
+                    rowClass = "bg-danger-subtle border-danger border-start border-4";
                     icon = "🛑";
-                } else if (d.tipo.includes("VOLTAJE")) {
+                } else if (d.tipo.includes("PREDICCIÓN")) {
                     badgeClass = "bg-warning text-dark";
-                    rowClass = "bg-warning-subtle border-warning";
+                    rowClass = "bg-warning-subtle border-warning border-start border-4";
                     icon = "⚡";
                 } else if (d.tipo.includes("ADMIN")) {
                     badgeClass = "bg-info text-dark";
@@ -140,18 +139,17 @@
                     icon = "📢";
                 } else if (d.tipo === "ESTADO") {
                     badgeClass = "bg-success";
-                    rowClass = "bg-white border-start border-success border-4";
+                    rowClass = "bg-white border-success";
                     icon = "✅";
                 }
 
-                // Crear el HTML de la fila
                 const div = document.createElement('div');
                 div.className = `log-entry rounded mb-2 ${rowClass}`;
                 div.innerHTML = `
-                    <div class="d-flex justify-content-between">
-                        <div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex align-items-center">
                             <span class="badge ${badgeClass} me-2">${icon} ${d.tipo}</span>
-                            <span class="fw-bold text-dark">${d.mensaje}</span>
+                            <span class="fw-bold text-dark text-break" style="font-size: 0.9rem;">${d.mensaje}</span>
                         </div>
                         <span class="log-time">${d.hora}</span>
                     </div>
@@ -160,23 +158,30 @@
             });
 
         } catch (e) {
-            console.error("Error conectando con API:", e);
-            document.getElementById('status-badge').className = "badge bg-danger";
-            document.getElementById('status-badge').innerText = "Desconectado";
+            console.error(e);
         }
     }
 
-    // --- 2. MANEJO DEL FORMULARIO DE REGISTRO ---
+    // 2. RECALCULAR IA
+    async function forzarRecalculo() {
+        const btn = document.getElementById('btnRecalcular');
+        btn.disabled = true;
+        btn.innerHTML = `<span class="spinner-border spinner-border-sm"></span> Procesando...`;
+        try {
+            await fetch('/api/recalcular', { method: 'POST' });
+            await actualizarMonitor();
+        } catch (e) { alert("Error IA"); }
+        finally {
+            btn.disabled = false;
+            btn.innerHTML = `⚡ Ejecutar Análisis IA`;
+        }
+    }
+
+    // 3. REGISTRO DE USUARIO (Cambia la vista)
     document.getElementById('formUser').addEventListener('submit', async (e) => {
         e.preventDefault();
-
         const email = document.getElementById('emailUser').value;
-        const topico = document.getElementById('topicoUser').value; // Aquí va el 1, 2 o 3
-
-        const btn = e.submitter;
-        const textoOriginal = btn.innerText;
-        btn.innerText = "Procesando...";
-        btn.disabled = true;
+        const topico = document.getElementById('topicoUser').value;
 
         try {
             const res = await fetch('/api/usuarios', {
@@ -184,55 +189,56 @@
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ email, topico })
             });
-
             const data = await res.json();
 
             if(res.ok) {
-                alert("✅ " + data.msg);
-                document.getElementById('formUser').reset();
-            } else {
-                alert("❌ Error: " + data.error);
+                // CAMBIAMOS LA VISTA AL USUARIO
+                usuarioActualEmail = email;
+
+                // Actualizamos UI
+                document.getElementById('usuario-badge').innerText = email;
+                document.getElementById('usuario-badge').className = "badge bg-info text-dark";
+
+                // Cambiar color borde según topic
+                const monitor = document.getElementById('monitor-logs');
+                if(topico === "1") monitor.style.borderLeftColor = "#dc3545"; // Rojo
+                else if(topico === "2") monitor.style.borderLeftColor = "#ffc107"; // Amarillo
+                else monitor.style.borderLeftColor = "#0d6efd"; // Azul
+
+                // Borramos buzón visual y recargamos
+                actualizarMonitor();
+                alert(`✅ Registrado. Ahora ves el buzón de: ${email}`);
             }
-        } catch (err) {
-            alert("Error de conexión");
-        } finally {
-            btn.innerText = textoOriginal;
-            btn.disabled = false;
-        }
+        } catch (err) { alert("Error conexión"); }
     });
 
-    // --- 3. ENVÍO DE AVISOS MANUALES ---
+    // 4. VOLVER A ADMIN
+    function verComoAdmin() {
+        usuarioActualEmail = ""; // Volver a modo global
+        document.getElementById('usuario-badge').innerText = "ADMIN (Global)";
+        document.getElementById('usuario-badge').className = "badge bg-warning text-dark";
+        document.getElementById('monitor-logs').style.borderLeftColor = "#6c757d";
+        actualizarMonitor();
+    }
+
+    // 5. AVISO MANUAL
     async function enviarAviso() {
-        const txt = document.getElementById('txtAviso');
-        const mensaje = txt.value.trim();
-
-        if(!mensaje) {
-            alert("Por favor escribe un mensaje.");
-            return;
-        }
-
-        try {
-            const res = await fetch('/api/aviso_manual', {
+        const mensaje = document.getElementById('txtAviso').value;
+        if(mensaje) {
+            await fetch('/api/aviso_manual', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ mensaje })
             });
-
-            if(res.ok) {
-                txt.value = ''; // Limpiar campo
-                actualizarMonitor(); // Refrescar para ver el mensaje
-                alert("Mensaje difundido correctamente.");
-            }
-        } catch (err) {
-            console.error(err);
+            document.getElementById('txtAviso').value = '';
+            actualizarMonitor(); // Refrescar para ver el mensaje enviado
         }
     }
 
-    // Iniciar el ciclo de refresco automático (Polling)
-    setInterval(actualizarMonitor, 5000); // Cada 5 segundos
-    actualizarMonitor(); // Primera carga inmediata
+    // INICIO
+    setInterval(actualizarMonitor, 2000); // Cada 2s
+    actualizarMonitor();
 
 </script>
-
 </body>
 </html>

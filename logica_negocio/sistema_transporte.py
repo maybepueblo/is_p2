@@ -55,38 +55,50 @@ class SistemaTransporte:
     def detectar_y_notificar(self):
         print("--- 🔍 Iniciando análisis predictivo masivo ---")
 
-        if self.datos_actuales is None:
-            print("Error: No hay datos para analizar.")
-            return
+        if self.datos_actuales is None: return
+        if not self.modulo_inteligente.is_trained: return
 
-        if not self.modulo_inteligente.is_trained:
-            print("Error: El modelo IA no está cargado/entrenado.")
-            return
+        # 1. Obtenemos TODAS las incidencias (las 78.000)
+        todas_incidencias = self.modulo_inteligente.analizar_todo(self.datos_actuales)
 
-        # LLAMADA AL MÉTODO RÁPIDO (BATCH)
-        incidencias = self.modulo_inteligente.analizar_todo(self.datos_actuales)
-
-        if incidencias:
-            total = len(incidencias)
+        if todas_incidencias:
+            total = len(todas_incidencias)
             print(f"⚡ ANÁLISIS COMPLETADO: {total} eventos detectados.")
 
-            # FILTRADO DE SEGURIDAD PARA LA WEB
-            # Si hay miles de alertas, enviamos solo las 50 más recientes para no bloquear el navegador
-            limit = 50
-            if total > limit:
-                # Ordenamos cronológicamente si vienen desordenadas (aunque numpy suele respetar orden)
-                # Tomamos las últimas 'limit' alertas
-                alertas_a_enviar = incidencias[-limit:]
-                aviso_sistema = f"ℹ️ SISTEMA: Se detectaron {total} eventos. Mostrando los {limit} más recientes..."
-                self.publisher.notificar(aviso_sistema, "Ambos")
-            else:
-                alertas_a_enviar = incidencias
+            # ========================================================
+            # 🧠 FILTRADO INTELIGENTE (PRIORIDAD DE SEGURIDAD)
+            # ========================================================
+            # Separamos las alertas críticas de las informativas
+            bloqueos = [i for i in todas_incidencias if "BLOQUEO" in i.upper()]
+            saltos = [i for i in todas_incidencias if "SALTO" in i.upper() or "PREDICCIÓN" in i.upper()]
+            otros = [i for i in todas_incidencias if i not in bloqueos and i not in saltos]
 
-            # Notificamos una a una las seleccionadas
+            alertas_a_enviar = []
+
+            # 1. LOS BLOQUEOS ENTRAN SIEMPRE (VIP)
+            alertas_a_enviar.extend(bloqueos)
+
+            # 2. Rellenamos con Saltos (solo los más recientes hasta llegar a 50)
+            hueco_disponible = 50 - len(alertas_a_enviar)
+
+            if hueco_disponible > 0 and saltos:
+                # Cogemos los ULTIMOS saltos (los más recientes en el tiempo)
+                recientes = saltos[-hueco_disponible:]
+                alertas_a_enviar.extend(recientes)
+
+            # Aviso de resumen
+            if total > 50:
+                n_ocultos = total - len(alertas_a_enviar)
+                aviso = f"ℹ️ SISTEMA: Se detectaron {len(bloqueos)} Bloqueos Críticos y {len(saltos)} Predicciones. (Ocultando {n_ocultos} alertas antiguas)"
+                self.publisher.notificar(aviso, "Ambos")
+
+            # ========================================================
+
+            # Enviamos la lista filtrada y priorizada
             for alerta in alertas_a_enviar:
                 if "BLOQUEO" in alerta.upper():
                     self.publisher.notificar(alerta, "Bloqueo")
-                elif "SALTO" in alerta.upper():
+                elif "SALTO" in alerta.upper() or "PREDICCIÓN" in alerta.upper():
                     self.publisher.notificar(alerta, "Salto")
                 else:
                     self.publisher.notificar(alerta, "Ambos")

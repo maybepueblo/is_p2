@@ -7,7 +7,14 @@ class Cliente(Suscriber):
         self.email = email
         self.id = id_cliente
         self.es_admin = es_admin
-        self.temas_suscritos: List[str] = []
+        # Ahora TODOS los clientes tienen memoria
+        self.buzon_mensajes: List[str] = []
 
     def update(self, mensaje: str):
-        print(f"🔔 [NOTIFICACIÓN para {self.email}]: {mensaje}")
+        # Guardamos el mensaje en memoria
+        self.buzon_mensajes.append(mensaje)
+        # Opcional: imprimir en consola para depurar
+        # print(f"🔔 [Buzón {self.email}]: {mensaje}")
+
+    def limpiar_buzon(self):
+        self.buzon_mensajes = []
