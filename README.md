@@ -1,93 +1,234 @@
-# is_p2
+# 🚄 Sistema de Mantenimiento Predictivo Ferroviario (IS-P2)
 
-# Diapos Walter
+![Python](https://img.shields.io/badge/Python-3.13-blue)
+![Framework](https://img.shields.io/badge/Framework-Flask-green)
+![AI](https://img.shields.io/badge/AI-XGBoost-orange)
+![Frontend](https://img.shields.io/badge/Frontend-Chart.js-pink)
+![Env](https://img.shields.io/badge/Env-uv-purple)
 
----
-
-1. Data set
-**El Reto:** 
-El CSV original presentaba lecturas de múltiples canales (a/b) y receptores mezcladas bajo la misma marca de tiempo (minuto).
-**Solución:**
-- Pivot Table Dinámica: Transformación de filas a columnas manteniendo la integridad de cada lectura individual.
-- Normalización: Conversión estandarizada de milivoltios (mV) a Voltios (V) para el modelo.
-**Resultado:**
-- Un dataset limpio, secuencial y sin pérdida de picos de señal críticos.
+Sistema inteligente de monitorización para infraestructuras ferroviarias.  
+Combina **Inteligencia Artificial (Machine Learning)** con **reglas físicas deterministas** para detectar y predecir anomalías en el suministro eléctrico ferroviario en tiempo real.
 
 ---
 
-2. Arquitectura de Software
-Patrón Fachada (SistemaTransporte):
-- Abstracción: Centraliza la complejidad. El cliente no interactúa directamente con el modelo ni con el parseo de datos.
-- Ciclo de Vida: Gestiona la carga automática del modelo persistido (.pkl) al iniciar, verificando la operatividad de la IA.
-Patrón Observer (Publisher):
-- Desacoplamiento: Separa la lógica de detección (IA) del sistema de notificación.
-- Escalabilidad: Permite notificar a múltiples suscriptores (Mantenimiento, Logs) sin modificar el núcleo inteligente.
-Persistencia y Modularidad:
-- Serialización con joblib para guardar el estado del modelo entrenado (is_trained, features), permitiendo despliegues sin re-entrenamiento.
-- Diseño modular donde ModuloInteligente encapsula toda la lógica de predicción.
+## 📋 Descripción del Proyecto
+
+El sistema procesa telemetría de voltaje procedente de sensores en vía (Receptores 1 y 2) para identificar dos tipos de incidencias críticas:
+
+1. **🛑 Bloqueos (Críticos)**  
+   Cortes súbitos de comunicación o caída total de señal.  
+   Se detectan mediante **lógica reactiva determinista**, garantizando un **Recall del 100%**.
+
+2. **⚡ Saltos de Voltaje (Preventivos)**  
+   Inestabilidades eléctricas progresivas.  
+   Se predicen con **120 segundos de antelación** mediante un modelo **XGBoost**, siguiendo un **enfoque híbrido**.
+
+El sistema incluye un **Dashboard Web interactivo** que permite:
+- Visualizar telemetría en tiempo real (simulado).
+- Gestionar suscripciones de alertas.
+- Simular distintos roles de usuario.
 
 ---
 
-3. Estrategia de IA (Mecánica de Predicción)
-Modelo Híbrido (Reactivo vs. Predictivo) El sistema no trata todas las incidencias igual, respeta su naturaleza física:
-- Bloqueos (Modo Reactivo): Al ser cortes súbitos (sin síntomas previos), la detección es inmediata al superar el umbral de seguridad (gap > 120s). Recall: 100%.
-- Saltos de Voltaje (Modo Predictivo): Se aprovecha la inercia térmica/eléctrica. El modelo busca "síntomas precursores" para anticipar el pico. 
-El Mecanismo de Predicción ¿Cómo sabe el modelo lo que pasará en el futuro?
-- Entrenamiento (Look-Ahead): Usamos una ventana futura de 120 segundos. Si en el futuro (T+120) ocurre un fallo, enseñamos al modelo a reconocer el patrón de ondas actual (T) como una "alerta temprana".
-- Inferencia (Tiempo Real): El modelo analiza solo los últimos 10 eventos (Ventana Pasada). Si detecta ese patrón aprendido (micro-oscilaciones o aceleración), lanza la predicción. 
-Ingeniería de Características (La Física del Dato) No damos al modelo solo el valor crudo, le damos la cinemática:
-- Velocidad (diff): Diferencia instantánea. Vital para diferenciar una subida normal de un inicio de salto.
-- Contexto (Window=10): Medias y desviaciones de los últimos 10 paquetes para entender la estabilidad.
-- Coherencia: Cruce matemático entre Receptor 1 y 2 para descartar ruido de un solo sensor.
-Seguridad por Diseño (Data Augmentation)
-- Ante la escasez de fallos graves reales, se inyectaron 2.000 bloqueos sintéticos con duración variable (125s - 1000s).
-- Objetivo: Forzar al algoritmo XGBoost a priorizar la clase minoritaria ("silencio de señal") sobre la precisión normal.
+## 🚀 Características Principales
+
+- **Arquitectura Híbrida**
+  - Reglas físicas → Seguridad crítica.
+  - Machine Learning → Mantenimiento predictivo.
+
+- **Alto rendimiento**
+  - Accuracy global: **94.51%**
+  - Detección de bloqueos: **100% (sin falsos negativos)**
+
+- **Patrón Publisher–Subscriber**
+  - Sistema desacoplado de notificaciones.
+  - Cada usuario recibe solo las alertas a las que está suscrito:
+    - Seguridad
+    - Mantenimiento
+    - Global
+
+- **Dashboard Web**
+  - Gráficas dinámicas con Chart.js.
+  - Buzón de alertas por usuario.
+  - Panel de administración y simulación.
+
+- **Procesamiento optimizado**
+  - Análisis vectorial batch.
+  - Capaz de procesar +100.000 registros en milisegundos.
 
 ---
 
-4. Optimización de Hiperparámetros
-Configuración Final (Validada): Tras la experimentación usando un grid search, se seleccionaron los siguientes parámetros que maximizan el rendimiento:
-- Ventana (Window): 10 (Analiza una secuencia más larga para mayor contexto).
-- Profundidad (Max Depth): 6 (Balance entre complejidad y prevención de over-fitting).
-- Estimadores: 100 (Árboles de decisión).
-- Learning Rate: 0.1.
-Justificación: Esta combinación específica logró estabilizar la detección de saltos, reduciendo los falsos positivos en la clase normal.
+## 📂 Estructura del Proyecto
+
+```text
+is_p2/
+├── .venv/                     # Entorno virtual (gestionado por uv)
+│
+├── data/
+│   └── Dataset-CV.csv         # Dataset principal
+│
+├── experiments/               # Experimentación y entrenamiento
+│   ├── data/
+│   ├── model/
+│   ├── experimentos.py        # Pruebas del modelo
+│   ├── check_bloqueos.py      # Análisis de bloqueos del dataset
+│   └── grid_search.py         # Búsqueda de hiperparámetros
+│
+├── logica_negocio/            # Núcleo del sistema
+│   ├── model/                 # Modelo entrenado (.pkl)
+│   ├── templates/
+│   │   └── index.html         # Dashboard Web
+│   ├── __init__.py
+│   ├── app.py                 # Servidor Flask (Entry Point)
+│   ├── modulo_inteligente.py  # Motor IA + lógica híbrida
+│   ├── sistema_transporte.py  # Fachada del sistema
+│   ├── publisher.py           # Publisher (Observer)
+│   ├── cliente.py             # Entidad Subscriber
+│   ├── lector_csv.py          # Ingesta de datos
+│   ├── visualizador.py        # Gráficas estáticas
+│   └── interfaces.py          # Contratos e interfaces
+│
+├── pyproject.toml             # Dependencias y configuración del proyecto
+├── uv.lock                    # Lockfile de dependencias
+├── .python-version            # Versión de Python
+├── README.md
+└── pyrightconfig.json
+````
 
 ---
 
-5. Resultados Experimentales
-Rendimiento Global:
-- Accuracy: 94.51% (Validado sobre 22.372 registros de test).
-- F1-Score Macro: 0.9540 (Excelente equilibrio entre clases).
-Análisis por Incidencia:
- - Bloqueos:
-   - Recall: 1.00 (100%). Se detectaron todos los eventos de bloqueo.
-   - Seguridad: Ningún falso negativo en la categoría.
- - Saltos de Voltaje:
-   - Precision: 95.84%.
-   - Recall: 96.60%. Capacidad muy alta para anticipar picos de tensión.
-Matriz de Confusión:
-- Robustez: De 6.196 casos normales, solo 678 fueron falsas alarmas ( ~10% de tasa de falsa alarma, aceptable para priorizar seguridad).
-- Eficacia: 15.624 saltos correctamente identificados de un total de 16.174.
-   
+## ⚙️ Instalación y Ejecución (usando `uv`)
+
+Este proyecto **no usa `requirements.txt`**.
+La gestión de dependencias se realiza mediante **`uv` + `pyproject.toml`**.
+
+### 1. Requisitos Previos
+
+* Python **3.10+**
+* `uv` instalado
+
+Instalación de `uv` (si no lo tienes):
+
+```bash
+pip install uv
+```
+
 ---
 
-# Problema de detección y no de predicción
-1. Evaluación de la Fase de Validación (QA) Durante las pruebas de aceptación del sistema inicial (V1), el equipo de validación identificó una divergencia conceptual crítica entre los objetivos del proyecto y la implementación funcional.
-- Comportamiento Observado: El algoritmo procesaba la ventana temporal actual (T0) y clasificaba el estado con alta precisión.
-- Defecto Reportado: El sistema operaba exclusivamente como un Monitor de Estado en Tiempo Real, limitándose a notificar incidencias en el instante de su ocurrencia.
-- Impacto Operativo: Aunque técnicamente correcto en la detección, el sistema fallaba en cumplir el requisito de predicción.
-2. Diagnóstico del Error Conceptual El análisis forense determinó que la arquitectura sufría de "Miopía Temporal":
-- Se había entrenado al modelo para responder a la pregunta: "¿Está fallando el sistema ahora?".
-- La pregunta correcta debía ser: "¿Fallará el sistema en el futuro inmediato?".
+### 2. Crear y sincronizar el entorno virtual
 
-Corrección Arquitectónica e Implementación Híbrida
-1. Estrategia de Corrección Para subsanar el error conceptual, se redefinió el objetivo del aprendizaje automático (ML) hacia la inferencia futura, estableciendo un Horizonte de Predicción de 120 segundos. Sin embargo, las pruebas de regresión revelaron una nueva limitación física en los datos.
-2. Segregación por Naturaleza del Evento (Solución Final) Al intentar aplicar la predicción universal, se descubrió que no todas las incidencias poseen "inercia predictiva":
-- Caso A: Saltos de Voltaje (Éxito Predictivo)
-  - Análisis: Los datos mostraron que los picos de tensión están precedidos por micro-oscilaciones y aceleraciones en la señal.
-  - Solución: Se implementó un modelo predictivo que alerta ante estos precursores, logrando anticipar el 96% de los eventos con 2 minutos de margen.
-- Caso B: Bloqueos de Señal (Limitación Física)
-  - Análisis: Los cortes de comunicación demostraron ser eventos estocásticos (aleatorios) y súbitos, carentes de precursores observables. Intentar predecirlos generaba alucinaciones (falsos positivos) en el modelo.
-  - Solución: Se mantuvo la Detección Reactiva exclusivamente para este caso, priorizando la fiabilidad (Recall 100%) sobre una predicción imposible.
-3. Conclusión Técnica La arquitectura final corrige el error conceptual inicial mediante un Enfoque Híbrido: predice lo que la física permite anticipar (desgaste/inestabilidad) y detecta instantáneamente lo que es accidental (roturas), cumpliendo así con los requisitos de seguridad y operatividad.
+Desde la raíz del proyecto (`is_p2/`):
+
+```bash
+uv venv
+uv sync
+```
+
+Esto:
+
+* Crea `.venv/`
+* Instala todas las dependencias definidas en `pyproject.toml`
+* Respeta las versiones fijadas en `uv.lock`
+
+---
+
+### 3. Activar el entorno
+
+**Linux / macOS**
+
+```bash
+source .venv/bin/activate
+```
+
+**Windows**
+
+```bash
+.venv\Scripts\activate
+```
+
+---
+
+### 4. Ejecutar la aplicación web
+
+```bash
+python logica_negocio/app.py
+```
+
+Abrir en el navegador:
+
+```
+http://127.0.0.1:5000
+```
+
+---
+
+## 🖥️ Manual de Uso del Dashboard
+
+### ▶ Panel Principal
+
+* Pulsa **“⚡ Ejecutar Análisis IA”**
+* El sistema:
+
+  * Carga el CSV
+  * Procesa los datos
+  * Prioriza bloqueos
+  * Simula streaming de voltaje
+
+---
+
+### 👥 Simulación de Usuarios (Publisher–Subscriber)
+
+Desde el panel lateral:
+
+* **Seguridad**
+
+  * Suscripción: Bloqueos
+  * Alertas rojas 🛑
+
+* **Mantenimiento**
+
+  * Suscripción: Predicciones
+  * Alertas amarillas ⚡
+
+* **Administrador**
+
+  * Suscripción: Ambas
+  * Visión completa del sistema
+
+---
+
+### 🔄 Recalcular
+
+* Limpia memoria
+* Reprocesa todo el dataset
+* Respuesta inmediata gracias al procesamiento vectorial
+
+---
+
+## 🧠 Estrategia Híbrida (Detalle Técnico)
+
+Durante la experimentación se observó que los modelos ML puros **fallaban al detectar bloqueos reales** debido a su carácter aleatorio.
+
+### Solución implementada
+
+1. **Bloqueos**
+
+   * Monitorización de `Δt` entre paquetes
+   * Si `Δt > 120s` → Alerta determinista inmediata
+
+2. **Saltos de voltaje**
+
+   * Modelo **XGBoost**
+   * Ventana deslizante (`window = 10`)
+   * Features cinemáticas 
+   * Horizonte de predicción: **120s**
+
+3. **Data Augmentation**
+
+   * +2000 casos sintéticos de bloqueo
+   * Garantiza prioridad absoluta de eventos críticos
+
+---
+
+Proyecto desarrollado para la asignatura
+**Ingeniería del Software – Práctica 2**
