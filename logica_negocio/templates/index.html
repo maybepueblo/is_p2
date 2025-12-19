@@ -5,24 +5,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Interfaz Metro - Sistema de Transporte</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body { background-color: #f8f9fa; }
         .monitor-screen {
             background-color: #fff;
-            min-height: 500px;
-            max-height: 600px;
+            min-height: 400px; /* Un poco menos alto para dejar sitio a la gráfica */
+            max-height: 500px;
             overflow-y: auto;
             border-radius: 10px;
             padding: 20px;
-            border-left: 5px solid #6c757d; /* Gris por defecto */
+            border-left: 5px solid #6c757d;
             box-shadow: inset 0 0 10px rgba(0,0,0,0.05);
             transition: border-color 0.5s;
         }
-        .log-entry {
-            padding: 12px;
-            border-bottom: 1px solid #eee;
-            animation: fadeIn 0.4s ease-out;
-        }
+        .log-entry { padding: 10px; border-bottom: 1px solid #eee; animation: fadeIn 0.4s ease-out; font-size: 0.9em; }
         .log-time { font-size: 0.8em; color: #999; margin-left:10px; min-width: 60px; text-align: right;}
         @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
     </style>
@@ -41,6 +38,17 @@
 <div class="container">
     <div class="row">
         <div class="col-lg-8 mb-4">
+
+            <div class="card shadow mb-3">
+                <div class="card-header bg-white py-2 d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0 text-primary fw-bold">📈 Telemetría de Voltaje (Tiempo Real)</h6>
+                    <small class="text-muted">Receptor 1 vs Receptor 2</small>
+                </div>
+                <div class="card-body" style="height: 250px;">
+                    <canvas id="miGrafica"></canvas>
+                </div>
+            </div>
+
             <div class="card shadow h-100">
                 <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
                     <h5 class="mb-0 text-primary fw-bold">📡 Buzón de Alertas</h5>
@@ -48,49 +56,41 @@
                         ⚡ Ejecutar Análisis IA
                     </button>
                 </div>
-
                 <div class="monitor-screen" id="monitor-logs">
-                    <div class="text-center text-muted mt-5">
-                        <p>Iniciando sistema...</p>
-                    </div>
+                    <div class="text-center text-muted mt-5"><p>Iniciando sistema...</p></div>
                 </div>
             </div>
         </div>
 
         <div class="col-lg-4">
             <div class="card shadow mb-4 border-primary">
-                <div class="card-header bg-primary text-white">
-                    👤 Simular Usuario
-                </div>
+                <div class="card-header bg-primary text-white">👤 Simular Usuario</div>
                 <div class="card-body">
                     <p class="small text-muted">Regístrate para ver solo tus alertas.</p>
                     <form id="formUser">
                         <div class="mb-3">
-                            <label class="form-label">Email del Operario</label>
+                            <label class="form-label">Email</label>
                             <input type="email" class="form-control" id="emailUser" placeholder="ej: juan@metro.com" required>
                         </div>
-
                         <div class="mb-3">
-                            <label class="form-label">Suscripción Real</label>
+                            <label class="form-label">Suscripción</label>
                             <select class="form-select" id="topicoUser" required>
                                 <option value="3">🔔 Ambos (Global)</option>
                                 <option value="1">🛑 Solo Bloqueos (Seguridad)</option>
                                 <option value="2">⚡ Solo Predicciones (Mantenimiento)</option>
                             </select>
                         </div>
-
                         <button type="submit" class="btn btn-outline-primary w-100">Registrar y Ver Buzón</button>
                     </form>
-
                     <hr>
-                    <button onclick="verComoAdmin()" class="btn btn-sm btn-secondary w-100">Volver a vista Admin (Ver todo)</button>
+                    <button onclick="verComoAdmin()" class="btn btn-sm btn-secondary w-100">Volver a Admin</button>
                 </div>
             </div>
 
             <div class="card shadow border-warning">
                 <div class="card-header bg-warning text-dark fw-bold">📢 Aviso Manual</div>
                 <div class="card-body">
-                    <textarea class="form-control mb-2" id="txtAviso" rows="2" placeholder="Mensaje a todos..."></textarea>
+                    <textarea class="form-control mb-2" id="txtAviso" rows="2" placeholder="Mensaje..."></textarea>
                     <button onclick="enviarAviso()" class="btn btn-warning w-100 btn-sm">Enviar</button>
                 </div>
             </div>
@@ -99,16 +99,70 @@
 </div>
 
 <script>
-    // ESTADO DE LA APLICACIÓN
-    let usuarioActualEmail = ""; // Vacío = Modo Admin
+    let usuarioActualEmail = "";
+    let myChart = null; // Variable para guardar la instancia de la gráfica
 
-    // 1. POLLING (Bucle principal)
+    // --- CONFIGURACIÓN INICIAL DE LA GRÁFICA ---
+    function initGrafica() {
+        const ctx = document.getElementById('miGrafica').getContext('2d');
+        myChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [], // Se llenará dinámicamente
+                datasets: [
+                    {
+                        label: 'Receptor 1 (V)',
+                        data: [],
+                        borderColor: 'rgba(13, 110, 253, 0.8)', // Azul
+                        backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                        borderWidth: 2,
+                        pointRadius: 0, // Sin puntos para que sea fluido
+                        fill: true,
+                        tension: 0.3 // Curvas suaves
+                    },
+                    {
+                        label: 'Receptor 2 (V)',
+                        data: [],
+                        borderColor: 'rgba(220, 53, 69, 0.8)', // Rojo
+                        backgroundColor: 'rgba(220, 53, 69, 0.0)',
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        tension: 0.3
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: false, // Desactivar animación para que no parpadee al refrescar
+                scales: {
+                    x: { display: true, ticks: { maxTicksLimit: 10 } }, // Limitar etiquetas eje X
+                    y: { beginAtZero: false }
+                },
+                plugins: { legend: { position: 'top' } }
+            }
+        });
+    }
+
+    // --- FUNCIÓN PARA ACTUALIZAR DATOS DE LA GRÁFICA ---
+    async function actualizarGrafica() {
+        try {
+            const res = await fetch('/api/grafica');
+            const datos = await res.json();
+
+            if (datos.labels && datos.labels.length > 0 && myChart) {
+                myChart.data.labels = datos.labels;
+                myChart.data.datasets[0].data = datos.v1;
+                myChart.data.datasets[1].data = datos.v2;
+                myChart.update();
+            }
+        } catch (e) { console.error("Error gráfica:", e); }
+    }
+
+    // --- LÓGICA DEL MONITOR (IGUAL QUE ANTES) ---
     async function actualizarMonitor() {
         try {
-            // Pedimos alertas a la API pasando el email del usuario actual
-            // Si está vacío, la API nos da el buzón del Admin
             const url = usuarioActualEmail ? `/api/estado?email=${usuarioActualEmail}` : '/api/estado';
-
             const res = await fetch(url);
             const datos = await res.json();
 
@@ -116,7 +170,7 @@
             contenedor.innerHTML = '';
 
             if(datos.length === 0) {
-                 contenedor.innerHTML = '<div class="text-center text-muted mt-5">Buzón vacío. Pulsa "Ejecutar Análisis".</div>';
+                 contenedor.innerHTML = '<div class="text-center text-muted mt-5">Buzón vacío.</div>';
                  return;
             }
 
@@ -125,119 +179,83 @@
                 let rowClass = "bg-light";
                 let icon = "ℹ️";
 
-                if (d.tipo.includes("PELIGRO")) {
-                    badgeClass = "bg-danger";
-                    rowClass = "bg-danger-subtle border-danger border-start border-4";
-                    icon = "🛑";
-                } else if (d.tipo.includes("PREDICCIÓN")) {
-                    badgeClass = "bg-warning text-dark";
-                    rowClass = "bg-warning-subtle border-warning border-start border-4";
-                    icon = "⚡";
-                } else if (d.tipo.includes("ADMIN")) {
-                    badgeClass = "bg-info text-dark";
-                    rowClass = "bg-info-subtle border-info";
-                    icon = "📢";
-                } else if (d.tipo === "ESTADO") {
-                    badgeClass = "bg-success";
-                    rowClass = "bg-white border-success";
-                    icon = "✅";
-                }
+                if (d.tipo.includes("PELIGRO")) { badgeClass = "bg-danger"; rowClass = "bg-danger-subtle border-danger border-start border-4"; icon = "🛑"; }
+                else if (d.tipo.includes("PREDICCIÓN")) { badgeClass = "bg-warning text-dark"; rowClass = "bg-warning-subtle border-warning border-start border-4"; icon = "⚡"; }
+                else if (d.tipo.includes("ADMIN")) { badgeClass = "bg-info text-dark"; rowClass = "bg-info-subtle border-info"; icon = "📢"; }
+                else if (d.tipo === "ESTADO") { badgeClass = "bg-success"; rowClass = "bg-white border-success"; icon = "✅"; }
 
                 const div = document.createElement('div');
                 div.className = `log-entry rounded mb-2 ${rowClass}`;
-                div.innerHTML = `
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div class="d-flex align-items-center">
-                            <span class="badge ${badgeClass} me-2">${icon} ${d.tipo}</span>
-                            <span class="fw-bold text-dark text-break" style="font-size: 0.9rem;">${d.mensaje}</span>
-                        </div>
-                        <span class="log-time">${d.hora}</span>
-                    </div>
-                `;
+                div.innerHTML = `<div class="d-flex justify-content-between align-items-center"><div class="d-flex align-items-center"><span class="badge ${badgeClass} me-2">${icon} ${d.tipo}</span><span class="fw-bold text-dark text-break" style="font-size: 0.9rem;">${d.mensaje}</span></div><span class="log-time">${d.hora}</span></div>`;
                 contenedor.appendChild(div);
             });
-
-        } catch (e) {
-            console.error(e);
-        }
+        } catch (e) { console.error(e); }
     }
 
-    // 2. RECALCULAR IA
     async function forzarRecalculo() {
         const btn = document.getElementById('btnRecalcular');
-        btn.disabled = true;
-        btn.innerHTML = `<span class="spinner-border spinner-border-sm"></span> Procesando...`;
+        btn.disabled = true; btn.innerHTML = `<span class="spinner-border spinner-border-sm"></span> ...`;
         try {
             await fetch('/api/recalcular', { method: 'POST' });
             await actualizarMonitor();
+            await actualizarGrafica(); // Actualizar gráfica tras recalculo
         } catch (e) { alert("Error IA"); }
-        finally {
-            btn.disabled = false;
-            btn.innerHTML = `⚡ Ejecutar Análisis IA`;
-        }
+        finally { btn.disabled = false; btn.innerHTML = `⚡ Ejecutar Análisis IA`; }
     }
 
-    // 3. REGISTRO DE USUARIO (Cambia la vista)
     document.getElementById('formUser').addEventListener('submit', async (e) => {
         e.preventDefault();
         const email = document.getElementById('emailUser').value;
         const topico = document.getElementById('topicoUser').value;
-
         try {
             const res = await fetch('/api/usuarios', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                method: 'POST', headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ email, topico })
             });
-            const data = await res.json();
-
             if(res.ok) {
-                // CAMBIAMOS LA VISTA AL USUARIO
                 usuarioActualEmail = email;
-
-                // Actualizamos UI
                 document.getElementById('usuario-badge').innerText = email;
                 document.getElementById('usuario-badge').className = "badge bg-info text-dark";
-
-                // Cambiar color borde según topic
                 const monitor = document.getElementById('monitor-logs');
-                if(topico === "1") monitor.style.borderLeftColor = "#dc3545"; // Rojo
-                else if(topico === "2") monitor.style.borderLeftColor = "#ffc107"; // Amarillo
-                else monitor.style.borderLeftColor = "#0d6efd"; // Azul
-
-                // Borramos buzón visual y recargamos
+                if(topico === "1") monitor.style.borderLeftColor = "#dc3545";
+                else if(topico === "2") monitor.style.borderLeftColor = "#ffc107";
+                else monitor.style.borderLeftColor = "#0d6efd";
                 actualizarMonitor();
-                alert(`✅ Registrado. Ahora ves el buzón de: ${email}`);
+                alert(`✅ Vista cambiada a: ${email}`);
             }
         } catch (err) { alert("Error conexión"); }
     });
 
-    // 4. VOLVER A ADMIN
     function verComoAdmin() {
-        usuarioActualEmail = ""; // Volver a modo global
+        usuarioActualEmail = "";
         document.getElementById('usuario-badge').innerText = "ADMIN (Global)";
         document.getElementById('usuario-badge').className = "badge bg-warning text-dark";
         document.getElementById('monitor-logs').style.borderLeftColor = "#6c757d";
         actualizarMonitor();
     }
 
-    // 5. AVISO MANUAL
     async function enviarAviso() {
         const mensaje = document.getElementById('txtAviso').value;
         if(mensaje) {
             await fetch('/api/aviso_manual', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                method: 'POST', headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ mensaje })
             });
             document.getElementById('txtAviso').value = '';
-            actualizarMonitor(); // Refrescar para ver el mensaje enviado
+            actualizarMonitor();
         }
     }
 
-    // INICIO
-    setInterval(actualizarMonitor, 2000); // Cada 2s
+    // --- INICIO ---
+    initGrafica(); // Iniciar lienzo
+    actualizarGrafica(); // Cargar primera data
     actualizarMonitor();
+
+    // Polling combinado
+    setInterval(() => {
+        actualizarMonitor();
+        actualizarGrafica();
+    }, 2000);
 
 </script>
 </body>

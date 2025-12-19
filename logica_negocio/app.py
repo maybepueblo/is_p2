@@ -105,5 +105,32 @@ def api_aviso_manual():
     return jsonify({"error": "Vacío"}), 400
 
 
+@app.route('/api/grafica')
+def api_grafica():
+    """
+    Devuelve los datos de voltaje para la gráfica.
+    Para que sea rápido, devolvemos solo los últimos 200 puntos.
+    """
+    if sistema.datos_actuales is None or sistema.datos_actuales.empty:
+        return jsonify({"labels": [], "v1": [], "v2": []})
+
+    # Cogemos los últimos 200 registros para simular "tiempo real" y que no se sature
+    # Si quieres ver todo, quita el .tail(200), pero cuidado con el rendimiento del navegador
+    datos_recientes = sistema.datos_actuales.tail(200)
+
+    # Preparamos JSON
+    # Convertimos timestamp a string solo con la hora (HH:MM:SS) para que ocupe menos en el eje X
+    labels = datos_recientes['timestamp'].dt.strftime('%H:%M:%S').tolist()
+
+    # Aseguramos que son float estándar de Python (no numpy types)
+    v1 = datos_recientes['voltageReceiver1'].astype(float).tolist()
+    v2 = datos_recientes['voltageReceiver2'].astype(float).tolist()
+
+    return jsonify({
+        "labels": labels,
+        "v1": v1,
+        "v2": v2
+    })
+
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
