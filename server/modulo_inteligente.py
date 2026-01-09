@@ -91,7 +91,8 @@ class ModuloInteligente:
 
     def cargar_modelo(self) -> bool:
         base_dir = os.path.dirname(os.path.abspath(__file__))
-        path = os.path.join(base_dir, "..", self.MODEL_DIR, self.MODEL_FILENAME)
+        #path = os.path.join(base_dir, "..", self.MODEL_DIR, self.MODEL_FILENAME)
+        path = os.path.join(base_dir, self.MODEL_DIR, self.MODEL_FILENAME)
         if not os.path.exists(path): path = os.path.join(self.MODEL_DIR, self.MODEL_FILENAME)
 
         if os.path.exists(path):
