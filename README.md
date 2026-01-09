@@ -107,9 +107,14 @@ La gestión de dependencias se realiza mediante **`uv` + `pyproject.toml`**.
 * `uv` instalado
 
 Instalación de `uv` (si no lo tienes):
-
+**Windows**
 ```bash
-pip install uv
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+
+```
+**Linux**
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
 ---
