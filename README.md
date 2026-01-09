@@ -106,11 +106,23 @@ La gestión de dependencias se realiza mediante **`uv` + `pyproject.toml`**.
 * Python **3.10+**
 * `uv` instalado
 
-Instalación de `uv` (si no lo tienes):
+Este proyecto **no usa `requirements.txt`**. La gestión de dependencias se realiza mediante **`uv`**.
 
-```bash
-pip install uv
+#### Instalar uv (Gestor de paquetes)
+
+Si aún no tienes `uv` instalado, usa el método recomendado para tu sistema operativo. 
+
+**Windows (PowerShell):**
+```powershell
+powershell -ExecutionPolicy ByPass -c "irm [https://astral.sh/uv/install.ps1](https://astral.sh/uv/install.ps1) | iex"
 ```
+
+macOS / Linux:
+```Bash
+curl -lsSf [https://astral.sh/uv/install.sh](https://astral.sh/uv/install.sh) | sh
+```
+
+(Nota: Si la terminal no reconoce el comando uv tras la instalación, cierra y vuelve a abrir la terminal
 
 ---
 
